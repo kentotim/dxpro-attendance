@@ -92,10 +92,11 @@ router.get('/hr', requireLogin, async (req, res) => {
                 .hr-welcome{background:linear-gradient(120deg,#0b2540 0%,#0b5fff 100%);border-radius:16px;padding:28px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:16px}
                 .hr-welcome-title{font-size:22px;font-weight:800;margin:0 0 4px}
                 .hr-welcome-sub{font-size:13px;opacity:.8;margin:0}
-                .hr-welcome-meta{display:flex;gap:24px;flex-wrap:wrap}
-                .hr-welcome-item{text-align:center}
-                .hr-welcome-item-val{font-size:22px;font-weight:800}
-                .hr-welcome-item-lbl{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.05em}
+                .hr-welcome-meta{display:flex;gap:0;flex-wrap:wrap;align-items:stretch}
+                .hr-welcome-item{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;border-left:1px solid rgba(255,255,255,.2)}
+                .hr-welcome-item:first-child{border-left:none}
+                .hr-welcome-item-val{font-size:22px;font-weight:800;line-height:1.2}
+                .hr-welcome-item-lbl{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;white-space:nowrap}
 
                 .hr-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
                 .hr-kpi{background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 4px 16px rgba(11,36,48,.06);display:flex;align-items:center;gap:14px}
@@ -108,18 +109,29 @@ router.get('/hr', requireLogin, async (req, res) => {
                 .hr-card-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #f1f5f9}
                 .hr-card-title{font-size:15px;font-weight:800;color:#0b2540;margin:0}
 
-                .hr-table{width:100%;border-collapse:collapse;font-size:13px}
-                .hr-table th{background:#f8fafc;color:#6b7280;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:left;white-space:nowrap}
-                .hr-table td{padding:11px 14px;border-bottom:1px solid #f8fafc;color:#1f2937;vertical-align:middle}
+                .hr-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+                .hr-table th{background:#f8fafc;color:#6b7280;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;border-bottom:2px solid #e5e7eb;text-align:left;white-space:nowrap}
+                .hr-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#1f2937;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
                 .hr-table tr:last-child td{border-bottom:none}
-                .hr-table tr:hover td{background:#f8faff}
-                .hr-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0b5fff,#7c3aed);color:#fff;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+                .hr-table tbody tr:hover td{background:#f0f5ff}
+                .hr-table col.col-avatar{width:46px}
+                .hr-table col.col-name{width:150px}
+                .hr-table col.col-id{width:140px}
+                .hr-table col.col-dept{width:150px}
+                .hr-table col.col-pos{width:130px}
+                .hr-table col.col-date{width:100px}
+                .hr-table col.col-leave{width:70px}
+                .hr-table col.col-action{width:120px}
+                .hr-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0b5fff,#7c3aed);color:#fff;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
                 .hr-table-search{padding:12px 20px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center}
                 .hr-table-search input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:7px 12px;font-size:13px;outline:none}
-                .hr-table-search input:focus{border-color:#0b5fff}
-                .hr-tbl-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer}
+                .hr-table-search input:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.08)}
+                .hr-tbl-actions{display:flex;flex-wrap:nowrap;gap:5px;align-items:center}
+                .hr-tbl-btn{display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0}
                 .hr-tbl-btn-edit{background:#eff6ff;color:#0b5fff}
+                .hr-tbl-btn-edit:hover{background:#dbeafe}
                 .hr-tbl-btn-del{background:#fee2e2;color:#ef4444}
+                .hr-tbl-btn-del:hover{background:#fecaca}
 
                 .hr-side-card{background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(11,36,48,.06);margin-bottom:16px;overflow:hidden}
                 .hr-side-head{padding:14px 18px;border-bottom:1px solid #f1f5f9;font-size:14px;font-weight:800;color:#0b2540}
@@ -216,8 +228,13 @@ router.get('/hr', requireLogin, async (req, res) => {
                                 <span style="color:#9ca3af">🔍</span>
                                 <input type="text" id="hrSearch" placeholder="名前・部署・役職で絞り込み..." oninput="filterHrTable(this.value)">
                             </div>
-                            <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+                            <div style="overflow-x:auto;max-height:540px;overflow-y:auto">
                                 <table class="hr-table" id="hrTable">
+                                    <colgroup>
+                                        <col class="col-avatar"><col class="col-name"><col class="col-id">
+                                        <col class="col-dept"><col class="col-pos"><col class="col-date">
+                                        <col class="col-leave"><col class="col-action">
+                                    </colgroup>
                                     <thead>
                                         <tr>
                                             <th></th><th>氏名</th><th>社員ID</th><th>部署</th><th>役職</th><th>入社日</th><th>有給残</th><th>操作</th>
@@ -226,16 +243,18 @@ router.get('/hr', requireLogin, async (req, res) => {
                                     <tbody>
                                         ${allEmployees.map(e => `
                                         <tr data-search="${escapeHtml(e.name)} ${escapeHtml(e.department||'')} ${escapeHtml(e.position||'')}">
-                                            <td><div class="hr-avatar">${escapeHtml((e.name||'?').charAt(0))}</div></td>
-                                            <td style="font-weight:700">${escapeHtml(e.name)}</td>
-                                            <td style="color:#9ca3af">${escapeHtml(e.employeeId||'—')}</td>
-                                            <td>${escapeHtml(e.department||'—')}</td>
-                                            <td>${escapeHtml(e.position||'—')}</td>
-                                            <td style="color:#9ca3af">${e.joinDate ? moment.tz(e.joinDate,'Asia/Tokyo').format('YYYY/MM/DD') : '—'}</td>
+                                            <td style="padding:8px 10px"><div class="hr-avatar">${escapeHtml((e.name||'?').charAt(0))}</div></td>
+                                            <td style="font-weight:700" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</td>
+                                            <td style="color:#9ca3af;font-size:12px" title="${escapeHtml(e.employeeId||'')}">${escapeHtml(e.employeeId||'—')}</td>
+                                            <td title="${escapeHtml(e.department||'')}">${escapeHtml(e.department||'—')}</td>
+                                            <td title="${escapeHtml(e.position||'')}">${escapeHtml(e.position||'—')}</td>
+                                            <td style="color:#9ca3af;font-size:12px">${e.joinDate ? moment.tz(e.joinDate,'Asia/Tokyo').format('YYYY/MM/DD') : '—'}</td>
                                             <td><span style="font-weight:700;color:#0b5fff">${balMap[e._id.toString()] ?? 0}日</span></td>
                                             <td>
-                                                <a href="/hr/edit/${e._id}" class="hr-tbl-btn hr-tbl-btn-edit">✏️ 編集</a>
-                                                <a href="/hr/delete/${e._id}" class="hr-tbl-btn hr-tbl-btn-del" onclick="return confirm('削除しますか？')">🗑</a>
+                                                <div class="hr-tbl-actions">
+                                                    <a href="/hr/edit/${e._id}" class="hr-tbl-btn hr-tbl-btn-edit">✏️ 編集</a>
+                                                    <a href="/hr/delete/${e._id}" class="hr-tbl-btn hr-tbl-btn-del" onclick="return confirm('削除しますか？')">🗑</a>
+                                                </div>
                                             </td>
                                         </tr>
                                         `).join('')}
