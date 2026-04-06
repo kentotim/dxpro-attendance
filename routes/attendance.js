@@ -6,6 +6,7 @@ const moment = require('moment-timezone');
 const { User, Employee, Attendance, ApprovalRequest } = require('../models');
 const { requireLogin } = require('../middleware/auth');
 const { escapeHtml } = require('../lib/helpers');
+const { buildPageShell } = require('../lib/renderPage');
 
 router.get('/attendance-main', requireLogin, async (req, res) => {
     try {
@@ -356,7 +357,7 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
     }
 });
 
-// 패스워드 변경 페이지 라우트 (GET)
+// パスワード変更ページルート (GET)
 router.get('/edit-attendance/:id', requireLogin, async (req, res) => {
     try {
         const attendance = await Attendance.findById(req.params.id);
@@ -373,147 +374,125 @@ router.get('/edit-attendance/:id', requireLogin, async (req, res) => {
             status: 'pending'
         });
 
+        const employee = req.session.employee;
+        const isAdmin  = !!req.session.isAdmin;
+
         if (attendance.isConfirmed || approvalRequest) {
-            return res.send(`
-                <div class="container">
-                    <h2>エラー</h2>
-                    <p>この勤怠記録は${attendance.isConfirmed ? '承認済み' : '承認リクエスト中'}のため編集できません</p>
-                    <a href="/dashboard" class="btn">ダッシュボードに戻る</a>
-                </div>
-            `);
+            const shell = buildPageShell({ title: '編集不可', currentPath: '/edit-attendance', employee, isAdmin });
+            return res.send(`${shell}
+<div class="card" style="max-width:480px;text-align:center;padding:40px">
+    <div style="font-size:48px;margin-bottom:16px">🔒</div>
+    <h3 style="color:#0b2540;margin:0 0 8px">編集できません</h3>
+    <p style="color:#6b7280;margin-bottom:20px">この勤怠記録は<strong>${attendance.isConfirmed ? '承認済み' : '承認リクエスト中'}</strong>のため編集できません。</p>
+    <a href="/my-monthly-attendance?year=${year}&month=${month}" class="btn btn-ghost">勤怠一覧に戻る</a>
+</div>
+</div></body></html>`);
         }
 
         function formatDateTimeForInput(date) {
             if (!date) return '';
-            // JSTとして表示
             return moment(date).tz('Asia/Tokyo').format('HH:mm');
         }
 
         const dateValue = moment(attendance.date).tz('Asia/Tokyo').format('YYYY-MM-DD');
 
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>勤怠記録編集</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <link rel="stylesheet" href="/styles.css">
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.min.js"></script>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        flatpickr.localize(flatpickr.l10ns.ja);
-                        
-                        // 日付ピッカー設定
-                        flatpickr("#date", {
-                            dateFormat: "Y-m-d",
-                            locale: "ja"
-                        });
-                        
-                        // 時間ピッカー設定
-                        const timeConfig = {
-                            enableTime: true,
-                            noCalendar: true,
-                            dateFormat: "H:i",
-                            time_24hr: true,
-                            locale: "ja"
-                        };
-                        
-                        flatpickr("#checkIn", timeConfig);
-                        flatpickr("#lunchStart", timeConfig);
-                        flatpickr("#lunchEnd", timeConfig);
-                        flatpickr("#checkOut", timeConfig);
+        const shell = buildPageShell({
+            title: '勤怠記録編集',
+            currentPath: '/edit-attendance',
+            employee,
+            isAdmin,
+            extraHead: `
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.min.js"></script>
+<style>
+.page-header { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+.page-header h2 { margin:0; font-size:22px; font-weight:700; color:#0b2540; }
+.form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){ .form-row-2{grid-template-columns:1fr} }
+</style>`
+        });
 
-                        // クライアントサイドバリデーション
-                        document.querySelector('form').addEventListener('submit', function(e) {
-                            const date = document.getElementById('date').value;
-                            const checkIn = document.getElementById('checkIn").value;
-                            const checkOut = document.getElementById('checkOut").value;
-                            const lunchStart = document.getElementById('lunchStart").value;
-                            const lunchEnd = document.getElementById('lunchEnd").value;
-                            
-                            // 必須チェック
-                            if (!date || !checkIn) {
-                                e.preventDefault();
-                                alert('日付と出勤時間は必須入力です');
-                                return false;
-                            }
-                            
-                            // 退勤時間がある場合は出勤時間より後か確認
-                            if (checkOut && checkOut <= checkIn) {
-                                e.preventDefault();
-                                alert('退勤時間は出勤時間より後にしてください');
-                                return false;
-                            }
-                            
-                            // 昼休み時間の整合性チェック
-                            if ((lunchStart && !lunchEnd) || (!lunchStart && lunchEnd)) {
-                                e.preventDefault();
-                                alert('昼休み開始と終了の両方を入力してください');
-                                return false;
-                            }
-                            
-                            if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
-                                e.preventDefault();
-                                alert('昼休み終了時間は開始時間より後にしてください');
-                                return false;
-                            }
-                            
-                            return true;
-                        });
-                    });
-                </script>
-            </head>
-            <body>
-                <div class="container">
-                    <h2>勤怠記録編集</h2>
-                    <form action="/update-attendance/${attendance._id}" method="POST">
-                        <div class="form-group">
-                            <label for="date">日付:</label>
-                            <input type="date" id="date" name="date" 
-                                value="${dateValue}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="checkIn">出勤時間:</label>
-                            <input type="text" id="checkIn" name="checkIn" 
-                                   value="${formatDateTimeForInput(attendance.checkIn)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="lunchStart">昼休み開始時間:</label>
-                            <input type="text" id="lunchStart" name="lunchStart" 
-                                   value="${attendance.lunchStart ? formatDateTimeForInput(attendance.lunchStart) : ''}">
-                        </div>
-                        <div class="form-group">
-                            <label for="lunchEnd">昼休み終了時間:</label>
-                            <input type="text" id="lunchEnd" name="lunchEnd" 
-                                   value="${attendance.lunchEnd ? formatDateTimeForInput(attendance.lunchEnd) : ''}">
-                        </div>
-                        <div class="form-group">
-                            <label for="checkOut">退勤時間:</label>
-                            <input type="text" id="checkOut" name="checkOut" 
-                                   value="${attendance.checkOut ? formatDateTimeForInput(attendance.checkOut) : ''}">
-                        </div>
-                        <div class="form-group">
-                            <label for="status">状態:</label>
-                            <select id="status" name="status">
-                                <option value="正常" ${attendance.status === '正常' ? 'selected' : ''}>正常</option>
-                                <option value="遅刻" ${attendance.status === '遅刻' ? 'selected' : ''}>遅刻</option>
-                                <option value="早退" ${attendance.status === '早退' ? 'selected' : ''}>早退</option>
-                                <option value="欠勤" ${attendance.status === '欠勤' ? 'selected' : ''}>欠勤</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="notes">備考:</label>
-                            <textarea id="notes" name="notes" rows="3">${attendance.notes || ''}</textarea>
-                        </div>                        
-                        <button type="submit" class="btn">更新</button>
-                        <a href="/dashboard" class="btn cancel-btn">キャンセル</a>
-                    </form>
-                </div>
-            </body>
-            </html>
-        `);
+        res.send(`${shell}
+<div class="page-header">
+    <a href="/my-monthly-attendance?year=${year}&month=${month}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <h2><i class="fa-solid fa-pen-to-square" style="color:#0b5fff"></i> 勤怠記録編集</h2>
+</div>
+
+<div class="card" style="max-width:560px">
+    <form action="/update-attendance/${attendance._id}" method="POST" id="edit-form">
+        <div class="form-group">
+            <label for="date">日付 <span style="color:#ef4444">*</span></label>
+            <input type="date" id="date" name="date" class="form-control" value="${dateValue}" required>
+        </div>
+        <div class="form-row-2">
+            <div class="form-group">
+                <label for="checkIn">出勤時間 <span style="color:#ef4444">*</span></label>
+                <input type="text" id="checkIn" name="checkIn" class="form-control"
+                       value="${formatDateTimeForInput(attendance.checkIn)}" required>
+            </div>
+            <div class="form-group">
+                <label for="checkOut">退勤時間</label>
+                <input type="text" id="checkOut" name="checkOut" class="form-control"
+                       value="${attendance.checkOut ? formatDateTimeForInput(attendance.checkOut) : ''}">
+            </div>
+        </div>
+        <div class="form-row-2">
+            <div class="form-group">
+                <label for="lunchStart">昼休み開始</label>
+                <input type="text" id="lunchStart" name="lunchStart" class="form-control"
+                       value="${attendance.lunchStart ? formatDateTimeForInput(attendance.lunchStart) : ''}">
+            </div>
+            <div class="form-group">
+                <label for="lunchEnd">昼休み終了</label>
+                <input type="text" id="lunchEnd" name="lunchEnd" class="form-control"
+                       value="${attendance.lunchEnd ? formatDateTimeForInput(attendance.lunchEnd) : ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="status">状態</label>
+            <select id="status" name="status" class="form-control">
+                <option value="正常" ${attendance.status === '正常' ? 'selected' : ''}>正常</option>
+                <option value="遅刻" ${attendance.status === '遅刻' ? 'selected' : ''}>遅刻</option>
+                <option value="早退" ${attendance.status === '早退' ? 'selected' : ''}>早退</option>
+                <option value="欠勤" ${attendance.status === '欠勤' ? 'selected' : ''}>欠勤</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="notes">備考</label>
+            <textarea id="notes" name="notes" rows="3" class="form-control">${attendance.notes || ''}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> 更新</button>
+            <a href="/my-monthly-attendance?year=${year}&month=${month}" class="btn btn-ghost">キャンセル</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    flatpickr.localize(flatpickr.l10ns.ja);
+    flatpickr('#date', { dateFormat:'Y-m-d', locale:'ja' });
+    const tc = { enableTime:true, noCalendar:true, dateFormat:'H:i', time_24hr:true, locale:'ja' };
+    flatpickr('#checkIn', tc);
+    flatpickr('#lunchStart', tc);
+    flatpickr('#lunchEnd', tc);
+    flatpickr('#checkOut', tc);
+
+    document.getElementById('edit-form').addEventListener('submit', function(e) {
+        const date = document.getElementById('date').value;
+        const ci   = document.getElementById('checkIn').value;
+        const co   = document.getElementById('checkOut').value;
+        const ls   = document.getElementById('lunchStart').value;
+        const le   = document.getElementById('lunchEnd').value;
+        if (!date || !ci) { e.preventDefault(); alert('日付と出勤時間は必須入力です'); return; }
+        if (co && co <= ci) { e.preventDefault(); alert('退勤時間は出勤時間より後にしてください'); return; }
+        if ((ls && !le) || (!ls && le)) { e.preventDefault(); alert('昼休み開始と終了の両方を入力してください'); return; }
+        if (ls && le && le <= ls) { e.preventDefault(); alert('昼休み終了時間は開始時間より後にしてください'); return; }
+    });
+});
+</script>
+</div></body></html>`);
     } catch (error) {
         console.error(error);
         res.redirect('/attendance-main');
@@ -593,125 +572,100 @@ router.post('/update-attendance/:id', requireLogin, async (req, res) => {
 
 // 打刻追加 페이지
 router.get('/add-attendance', requireLogin, (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>打刻追加</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <link rel="stylesheet" href="/styles.css">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.min.js"></script>
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    flatpickr.localize(flatpickr.l10ns.ja);
-                    
-                    // 日付ピッカー設定
-                    flatpickr("#date", {
-                        dateFormat: "Y-m-d",
-                        locale: "ja",
-                        defaultDate: new Date()
-                    });
-                    
-                    // 時間ピッカー設定
-                    const timeConfig = {
-                        enableTime: true,
-                        noCalendar: true,
-                        dateFormat: "H:i",
-                        time_24hr: true,
-                        locale: "ja"
-                    };
-                    
-                    flatpickr("#checkIn", timeConfig);
-                    flatpickr("#lunchStart", timeConfig);
-                    flatpickr("#lunchEnd", timeConfig);
-                    flatpickr("#checkOut", timeConfig);
+    const employee = req.session.employee;
+    const isAdmin  = !!req.session.isAdmin;
+    const shell = buildPageShell({
+        title: '打刻追加',
+        currentPath: '/add-attendance',
+        employee,
+        isAdmin,
+        extraHead: `
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.min.js"></script>
+<style>
+.page-header { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+.page-header h2 { margin:0; font-size:22px; font-weight:700; color:#0b2540; }
+.form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){ .form-row-2{grid-template-columns:1fr} }
+</style>`
+    });
+    res.send(`${shell}
+<div class="page-header">
+    <a href="/attendance-main" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <h2><i class="fa-solid fa-plus" style="color:#0b5fff"></i> 打刻追加</h2>
+</div>
 
-                    // クライアントサイドバリデーション
-                    document.querySelector('form').addEventListener('submit', function(e) {
-                        const date = document.getElementById('date').value;
-                        const checkIn = document.getElementById('checkIn').value;
-                        const checkOut = document.getElementById('checkOut').value;
-                        const lunchStart = document.getElementById('lunchStart').value;
-                        const lunchEnd = document.getElementById('lunchEnd').value;
-                        
-                        // 必須チェック
-                        if (!date || !checkIn) {
-                            e.preventDefault();
-                            alert('日付と出勤時間は必須入力です');
-                            return false;
-                        }
-                        
-                        // 退勤時間がある場合は出勤時間より後か確認
-                        if (checkOut && checkOut <= checkIn) {
-                            e.preventDefault();
-                            alert('退勤時間は出勤時間より後にしてください');
-                            return false;
-                        }
-                        
-                        // 昼休み時間の整合性チェック
-                        if ((lunchStart && !lunchEnd) || (!lunchStart && lunchEnd)) {
-                            e.preventDefault();
-                            alert('昼休み開始と終了の両方を入力してください');
-                            return false;
-                        }
-                        
-                        if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
-                            e.preventDefault();
-                            alert('昼休み終了時間は開始時間より後にしてください');
-                            return false;
-                        }
-                        
-                        return true;
-                    });
-                });
-            </script>
-        </head>
-        <body>
-            <div class="container">
-                <h2>打刻追加</h2>
-                <form action="/save-attendance" method="POST">
-                    <div class="form-group">
-                        <label for="date">日付:</label>
-                        <input type="date" id="date" name="date" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="checkIn">出勤時間:</label>
-                        <input type="text" id="checkIn" name="checkIn" placeholder="HH:MM" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="lunchStart">昼休み開始時間:</label>
-                        <input type="text" id="lunchStart" name="lunchStart" placeholder="HH:MM">
-                    </div>
-                    <div class="form-group">
-                        <label for="lunchEnd">昼休み終了時間:</label>
-                        <input type="text" id="lunchEnd" name="lunchEnd" placeholder="HH:MM">
-                    </div>
-                    <div class="form-group">
-                        <label for="checkOut">退勤時間:</label>
-                        <input type="text" id="checkOut" name="checkOut" placeholder="HH:MM">
-                    </div>
-                    <div class="form-group">
-                        <label for="status">状態:</label>
-                        <select id="status" name="status">
-                            <option value="正常">正常</option>
-                            <option value="遅刻">遅刻</option>
-                            <option value="早退">早退</option>
-                            <option value="欠勤">欠勤</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="notes">備考:</label>
-                        <textarea id="notes" name="notes" rows="3"></textarea>
-                    </div>                    
-                    <button type="submit" class="btn">保存</button>
-                    <a href="/dashboard" class="btn cancel-btn">キャンセル</a>
-                </form>
+<div class="card" style="max-width:560px">
+    <form action="/save-attendance" method="POST" id="add-form">
+        <div class="form-group">
+            <label for="date">日付 <span style="color:#ef4444">*</span></label>
+            <input type="date" id="date" name="date" class="form-control" required>
+        </div>
+        <div class="form-row-2">
+            <div class="form-group">
+                <label for="checkIn">出勤時間 <span style="color:#ef4444">*</span></label>
+                <input type="text" id="checkIn" name="checkIn" placeholder="09:00" class="form-control" required>
             </div>
-        </body>
-        </html>
-    `);
+            <div class="form-group">
+                <label for="checkOut">退勤時間</label>
+                <input type="text" id="checkOut" name="checkOut" placeholder="18:00" class="form-control">
+            </div>
+        </div>
+        <div class="form-row-2">
+            <div class="form-group">
+                <label for="lunchStart">昼休み開始</label>
+                <input type="text" id="lunchStart" name="lunchStart" placeholder="12:00" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="lunchEnd">昼休み終了</label>
+                <input type="text" id="lunchEnd" name="lunchEnd" placeholder="13:00" class="form-control">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="status">状態</label>
+            <select id="status" name="status" class="form-control">
+                <option value="正常">正常</option>
+                <option value="遅刻">遅刻</option>
+                <option value="早退">早退</option>
+                <option value="欠勤">欠勤</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="notes">備考</label>
+            <textarea id="notes" name="notes" rows="3" class="form-control" placeholder="任意"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> 保存</button>
+            <a href="/attendance-main" class="btn btn-ghost">キャンセル</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    flatpickr.localize(flatpickr.l10ns.ja);
+    flatpickr('#date', { dateFormat:'Y-m-d', locale:'ja', defaultDate: new Date() });
+    const tc = { enableTime:true, noCalendar:true, dateFormat:'H:i', time_24hr:true, locale:'ja' };
+    flatpickr('#checkIn', tc);
+    flatpickr('#lunchStart', tc);
+    flatpickr('#lunchEnd', tc);
+    flatpickr('#checkOut', tc);
+
+    document.getElementById('add-form').addEventListener('submit', function(e) {
+        const date = document.getElementById('date').value;
+        const ci   = document.getElementById('checkIn').value;
+        const co   = document.getElementById('checkOut').value;
+        const ls   = document.getElementById('lunchStart').value;
+        const le   = document.getElementById('lunchEnd').value;
+        if (!date || !ci) { e.preventDefault(); alert('日付と出勤時間は必須入力です'); return; }
+        if (co && co <= ci) { e.preventDefault(); alert('退勤時間は出勤時間より後にしてください'); return; }
+        if ((ls && !le) || (!ls && le)) { e.preventDefault(); alert('昼休み開始と終了の両方を入力してください'); return; }
+        if (ls && le && le <= ls) { e.preventDefault(); alert('昼休み終了時間は開始時間より後にしてください'); return; }
+    });
+});
+</script>
+</div></body></html>`);
 });
 
 // 勤怠記録削除
@@ -1352,11 +1306,11 @@ router.get('/my-monthly-attendance', requireLogin, async (req, res) => {
             return res.status(400).send('社員情報がありません');
         }
 
-        const year = req.query.year || new Date().getFullYear();
-        const month = req.query.month || new Date().getMonth() + 1;
+        const year  = parseInt(req.query.year)  || new Date().getFullYear();
+        const month = parseInt(req.query.month) || new Date().getMonth() + 1;
         
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
+        const endDate   = new Date(year, month, 0);
         
         const attendances = await Attendance.find({
             userId: user._id,
@@ -1367,193 +1321,193 @@ router.get('/my-monthly-attendance', requireLogin, async (req, res) => {
             userId: user._id,
             year: year,
             month: month
-        });        
+        });
 
-        // 入社月と照会月が同じか確認
-        const isJoinMonth = employee.joinDate.getFullYear() === year && 
+        const isJoinMonth = employee.joinDate.getFullYear() === year &&
                           (employee.joinDate.getMonth() + 1) === month;
 
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>私の勤怠記録 - ${year}年${month}月</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <link rel="stylesheet" href="/styles.css">
-                <style>
-                    .request-status {
-                        padding: 10px;
-                        border-radius: 4px;
-                        margin-bottom: 15px;
-                    }
-                    .status-pending {
-                        background: #fff3cd;
-                        color: #856404;
-                        border-left: 4px solid #ffc107;
-                    }
-                    .status-approved {
-                        background: #d4edda;
-                        color: #155724;
-                        border-left: 4px solid #28a745;
-                    }
-                    .status-returned {
-                        background: #f8d7da;
-                        color: #721c24;
-                        border-left: 4px solid #dc3545;
-                    }
-                </style>                
-                <script>
-                    function updateClock() {
-                        const now = new Date();
-                        document.getElementById('current-time').textContent = 
-                            '現在時刻: ' + now.toLocaleTimeString('ja-JP');
-                    }
-                    setInterval(updateClock, 1000);
-                    window.onload = updateClock;
-                    
-                    function requestApproval(year, month) {
-                        const confirmed = ${attendances.some(a => a.isConfirmed)};
-                        if (confirmed) {
-                            return alert('この月の勤怠は既に承認済みです');
-                        }
+        // 승인 상태 배지
+        let approvalBadge = '';
+        if (approvalRequest) {
+            const statusMap = { pending: ['badge-warning','承認待ち'], approved: ['badge-success','承認済み'], returned: ['badge-danger','差し戻し'] };
+            const [cls, label] = statusMap[approvalRequest.status] || ['badge-muted', approvalRequest.status];
+            approvalBadge = `<span class="badge ${cls}" style="font-size:13px;padding:5px 12px">${label}</span>`;
+        }
 
-                        if (confirm('${year}年${month}月の勤怠記録を承認リクエストしますか？')) {
-                            fetch('/request-approval', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    year: year,
-                                    month: month
-                                })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    alert('承認リクエストが完了しました');
-                                    location.reload();
-                                } else {
-                                    alert('承認リクエスト中にエラーが発生しました: ' + data.message);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('エラー:', error);
-                                alert('承認リクエスト中にエラーが発生しました');
-                            });
-                        }
-                    }
-                    
-                    function printAttendance(year, month) {
-                        window.open('/print-attendance?year=' + year + '&month=' + month, '_blank');
-                    }
-                </script>
-            </head>
-            <body>
-                <div class="container">
-                    <div id="current-time" class="clock"></div>
-                    <h2>${employee.name}さんの${year}年${month}月勤怠記録</h2>
-                    <p>社員番号: ${employee.employeeId} | 部署: ${employee.department}</p>
+        // 統計計算
+        const totalWork   = attendances.reduce((s, a) => s + (a.workingHours || 0), 0);
+        const countWork   = attendances.filter(a => a.status !== '欠勤').length;
+        const countAbsent = attendances.filter(a => a.status === '欠勤').length;
+        const countLate   = attendances.filter(a => a.status === '遅刻').length;
 
-                    ${approvalRequest ? `
-                        <div class="request-status status-${approvalRequest.status}">
-                            <strong>承認状態:</strong> 
-                            ${approvalRequest.status === 'pending' ? '承認待ち' : 
-                              approvalRequest.status === 'approved' ? '承認済み' : 
-                              approvalRequest.status === 'returned' ? '差し戻し' : ''}
-                            ${approvalRequest.processedAt ? `
-                                <br><small>処理日: ${approvalRequest.processedAt.toLocaleDateString('ja-JP')}</small>
-                            ` : ''}
-                            ${approvalRequest.status === 'returned' && approvalRequest.returnReason ? `
-                                <br><strong>差し戻し理由:</strong> ${approvalRequest.returnReason}
-                            ` : ''}
-                        </div>
-                    ` : ''}                    
+        const canEdit = !approvalRequest || approvalRequest.status === 'returned';
 
-                    <form action="/my-monthly-attendance" method="GET" class="month-selector">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="year">年度:</label>
-                                <input type="number" id="year" name="year" value="${year}" min="2000" max="2100" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="month">月:</label>
-                                <input type="number" id="month" name="month" value="${month}" min="1" max="12" required>
-                            </div>
-                            <button type="submit" class="btn">照会</button>
-                        </div>
-                    </form>
-                    
-                    ${isJoinMonth ? `
-                        <div class="notice">
-                            <p>※ 今月は入社月です。入社日: ${employee.joinDate.toLocaleDateString('ja-JP')}</p>
-                        </div>
-                    ` : ''}               
-                    <div class="actions">
-                        <button onclick="requestApproval(${year}, ${month})" class="btn">承認リクエスト</button>
-                        <button onclick="printAttendance(${year}, ${month})" class="btn print-btn">勤怠表印刷</button>
-                    </div>                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>日付</th>
-                                <th>出勤</th>
-                                <th>退勤</th>
-                                <th>昼休憩</th>
-                                <th>勤務時間</th>
-                                <th>状態</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${attendances.map(att => `
-                                <tr>
-                                    <td>${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD')}</td>
-                                    <td>${att.checkIn ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}</td>
-                                    <td>${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}</td>
-                                    <td>
-                                        ${att.lunchStart ? moment(att.lunchStart).tz('Asia/Tokyo').format('HH:mm:ss') : '-'} ～
-                                        ${att.lunchEnd ? moment(att.lunchEnd).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}
-                                    </td>
-                                    <td>${att.workingHours || '-'}時間</td>
-                                    <td>${att.status} ${att.isConfirmed ? '<span class="confirmed-badge">承認済み</span>' : ''}</td>
-                                    <td>
-                                        <a href="/edit-attendance/${att._id}" class="btn edit-btn" 
-                                           ${att.isConfirmed || (approvalRequest && approvalRequest.status === 'pending') ? 'disabled style="opacity:0.5; pointer-events:none;"' : ''}>
-                                            編集
-                                        </a>
-                                        <form action="/delete-attendance/${att._id}" method="POST" style="display:inline;" 
-                                            onsubmit="return confirm('この打刻記録を削除しますか？');">
-                                            <button type="submit" class="btn delete-btn"
-                                                ${att.isConfirmed || (approvalRequest && approvalRequest.status === 'pending') ? 'disabled style="opacity:0.5; pointer-events:none;"' : ''}>
-                                                削除
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            ${attendances.length === 0 ? `
-                                <tr>
-                                    <td colspan="7">該当月の勤怠記録がありません</td>
-                                </tr>
-                            ` : ''}
-                        </tbody>
-                    </table>
-                    
-                    <div class="navigation">
-                        <a href="/dashboard" class="btn">ダッシュボードに戻る</a>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `);
+        // 年/月の選択肢
+        const now = moment().tz('Asia/Tokyo');
+        const yearOptions = [now.year()-1, now.year(), now.year()+1]
+            .map(y => `<option value="${y}" ${y===year?'selected':''}>${y}年</option>`).join('');
+        const monthOptions = Array.from({length:12},(_,i)=>i+1)
+            .map(m => `<option value="${m}" ${m===month?'selected':''}>${m}月</option>`).join('');
+
+        const shell = buildPageShell({
+            title: `${year}年${month}月 勤怠記録`,
+            currentPath: '/my-monthly-attendance',
+            employee: req.session.employee,
+            isAdmin: !!req.session.isAdmin,
+            extraHead: `<style>
+.page-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.page-header h2 { margin:0; font-size:22px; font-weight:700; color:#0b2540; }
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+@media(max-width:700px){ .stats-row{grid-template-columns:repeat(2,1fr)} }
+.stat-card { background:#fff; border-radius:10px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.stat-card .s-label { font-size:12px; color:#6b7280; margin-bottom:4px; }
+.stat-card .s-value { font-size:22px; font-weight:800; color:#0b2540; }
+.month-nav { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.month-nav select { padding:7px 10px; border-radius:7px; border:1px solid #d1d5db; font-size:14px; }
+.tbl-wrap { overflow-x:auto; border-radius:10px; }
+.tbl-wrap table { width:100%; border-collapse:collapse; font-size:14px; }
+.tbl-wrap thead th { background:#0b2540; color:#fff; padding:10px 12px; text-align:left; white-space:nowrap; }
+.tbl-wrap tbody td { padding:10px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; white-space:nowrap; }
+.tbl-wrap tbody tr:hover td { background:#f8fafc; }
+.tbl-wrap tbody tr:last-child td { border-bottom:none; }
+.action-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+</style>`
+        });
+
+        res.send(`${shell}
+<div class="page-header">
+    <a href="/attendance-main" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <h2><i class="fa-solid fa-calendar-days" style="color:#0b5fff"></i>
+        ${escapeHtml(employee.name)}さんの勤怠記録
+    </h2>
+    ${approvalBadge}
+    <span style="color:#6b7280;font-size:13px;margin-left:auto">${year}年${month}月</span>
+</div>
+
+<!-- 月切替 -->
+<div class="card" style="padding:16px 20px;margin-bottom:16px">
+    <form action="/my-monthly-attendance" method="GET" class="month-nav">
+        <select name="year">${yearOptions}</select>
+        <select name="month">${monthOptions}</select>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> 切替</button>
+    </form>
+</div>
+
+<!-- 統計 -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="s-label">出勤日数</div>
+        <div class="s-value" style="color:#0b5fff">${countWork}</div>
+    </div>
+    <div class="stat-card">
+        <div class="s-label">総勤務時間</div>
+        <div class="s-value">${totalWork.toFixed(1)}<span style="font-size:14px;font-weight:400;color:#6b7280">h</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="s-label">遅刻</div>
+        <div class="s-value" style="color:#f59e0b">${countLate}</div>
+    </div>
+    <div class="stat-card">
+        <div class="s-label">欠勤</div>
+        <div class="s-value" style="color:#ef4444">${countAbsent}</div>
+    </div>
+</div>
+
+${isJoinMonth ? `<div class="alert alert-info" style="margin-bottom:16px"><i class="fa-solid fa-circle-info"></i> 今月は入社月です。入社日: ${employee.joinDate.toLocaleDateString('ja-JP')}</div>` : ''}
+
+${approvalRequest && approvalRequest.status === 'returned' && approvalRequest.returnReason ? `
+<div class="alert alert-danger" style="margin-bottom:16px">
+    <strong><i class="fa-solid fa-rotate-left"></i> 差し戻し理由:</strong> ${escapeHtml(approvalRequest.returnReason)}
+    ${approvalRequest.processedAt ? `<br><small style="color:#991b1b">処理日: ${approvalRequest.processedAt.toLocaleDateString('ja-JP')}</small>` : ''}
+</div>` : ''}
+
+${approvalRequest && approvalRequest.status === 'pending' ? `
+<div class="alert alert-warning" style="margin-bottom:16px">
+    <i class="fa-solid fa-hourglass-half"></i> <strong>承認待ち</strong> — 管理者の処理をお待ちください。この期間の記録は編集できません。
+</div>` : ''}
+
+${approvalRequest && approvalRequest.status === 'approved' ? `
+<div class="alert alert-success" style="margin-bottom:16px">
+    <i class="fa-solid fa-circle-check"></i> <strong>承認済み</strong>
+    ${approvalRequest.processedAt ? ` — ${approvalRequest.processedAt.toLocaleDateString('ja-JP')}` : ''}
+</div>` : ''}
+
+<!-- アクションボタン -->
+<div class="action-row">
+    ${canEdit ? `<button onclick="requestApproval(${year},${month})" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> 承認リクエスト</button>` : ''}
+    <a href="/attendance/bulk-register?year=${year}&month=${month}" class="btn btn-ghost"><i class="fa-solid fa-table-list"></i> 一括入力</a>
+    <button onclick="window.open('/print-attendance?year=${year}&month=${month}','_blank')" class="btn btn-ghost"><i class="fa-solid fa-print"></i> 印刷</button>
+</div>
+
+<!-- 勤怠テーブル -->
+<div class="card" style="padding:0;overflow:hidden">
+    <div class="tbl-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>日付</th>
+                    <th>出勤</th>
+                    <th>退勤</th>
+                    <th>昼休憩</th>
+                    <th>勤務時間</th>
+                    <th>状態</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${attendances.length === 0 ? `<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:32px">この月の勤怠記録はありません</td></tr>` : ''}
+                ${attendances.map(att => {
+                    const locked = att.isConfirmed || (approvalRequest && approvalRequest.status === 'pending');
+                    const statusCls = att.status === '遅刻' ? 'badge-warning' : att.status === '早退' ? 'badge-warning' : att.status === '欠勤' ? 'badge-danger' : 'badge-success';
+                    return `<tr>
+                        <td>${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD (ddd)')}</td>
+                        <td>${att.checkIn  ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#9ca3af">-</span>'}</td>
+                        <td>${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#9ca3af">-</span>'}</td>
+                        <td style="font-size:13px;color:#6b7280">
+                            ${att.lunchStart ? moment(att.lunchStart).tz('Asia/Tokyo').format('HH:mm') : '-'} ～
+                            ${att.lunchEnd   ? moment(att.lunchEnd).tz('Asia/Tokyo').format('HH:mm')   : '-'}
+                        </td>
+                        <td>${att.workingHours != null ? att.workingHours + 'h' : '<span style="color:#9ca3af">-</span>'}</td>
+                        <td>
+                            <span class="badge ${statusCls}">${att.status}</span>
+                            ${att.isConfirmed ? '<span class="badge badge-info" style="margin-left:4px">確定</span>' : ''}
+                        </td>
+                        <td style="display:flex;gap:6px">
+                            <a href="/edit-attendance/${att._id}" class="btn btn-ghost btn-sm"
+                               ${locked ? 'style="opacity:.4;pointer-events:none"' : ''}><i class="fa-solid fa-pen"></i></a>
+                            <form action="/delete-attendance/${att._id}" method="POST" style="display:inline"
+                                  onsubmit="return confirm('この打刻記録を削除しますか？');">
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                    ${locked ? 'disabled style="opacity:.4"' : ''}><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function requestApproval(year, month) {
+    if (!confirm(year + '年' + month + '月の勤怠記録を承認リクエストしますか？')) return;
+    fetch('/request-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year, month })
+    })
+    .then(r => r.json())
+    .then(d => { alert(d.success ? '承認リクエストが完了しました' : 'エラー: ' + d.message); if (d.success) location.reload(); })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+</script>
+</div></body></html>`);
     } catch (error) {
         console.error(error);
         res.status(500).send('月別勤怠照会中にエラーが発生しました');
     }
 });
-
-// 일반 사용자 승인 요청 처리
+// 一般ユーザー承認リクエスト処理
 router.post('/request-approval', requireLogin, async (req, res) => {
     try {
         const { year, month } = req.body;

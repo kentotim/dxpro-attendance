@@ -8,7 +8,7 @@ const { User, Employee, Attendance, ApprovalRequest, LeaveRequest, PayrollSlip, 
 const { requireLogin, isAdmin } = require('../middleware/auth');
 const { sendMail } = require('../config/mailer');
 const { escapeHtml } = require('../lib/helpers');
-const { renderPage } = require('../lib/renderPage');
+const { renderPage, buildPageShell } = require('../lib/renderPage');
 
 router.get('/admin', requireLogin, isAdmin, async (req, res) => {
         const username = req.session.user?.username || req.session.username || '管理者';
@@ -175,18 +175,16 @@ router.post('/admin/register-employee', requireLogin, isAdmin, async (req, res) 
 // 管理者月別勤怠照会ページ
 router.get('/admin/monthly-attendance', requireLogin, isAdmin, async (req, res) => {
     try {
-        const year = parseInt(req.query.year) || new Date().getFullYear();
-        const month = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const year       = parseInt(req.query.year)  || new Date().getFullYear();
+        const month      = parseInt(req.query.month) || new Date().getMonth() + 1;
         const department = req.query.department || '';
-        
+
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-        
-        // 모든 직원 조회 (부서 필터 적용)
+        const endDate   = new Date(year, month, 0);
+
         const query = department ? { department } : {};
         const employees = await Employee.find(query).populate('userId');
 
-        // 각 직원의 근태 기록 조회
         const monthlyData = await Promise.all(employees.map(async employee => {
             const attendances = await Attendance.find({
                 userId: employee.userId._id,
@@ -195,246 +193,167 @@ router.get('/admin/monthly-attendance', requireLogin, isAdmin, async (req, res) 
 
             const approvalRequest = await ApprovalRequest.findOne({
                 employeeId: employee.employeeId,
-                year: year,
-                month: month
+                year,
+                month
             });
 
-            return {
-                employee: {
-                    _id: employee._id,
-                    employeeId: employee.employeeId,
-                    name: employee.name,
-                    department: employee.department,
-                    position: employee.position
-                },
-                attendances: attendances.map(att => ({
-                    _id: att._id,
-                    date: att.date,
-                    checkIn: att.checkIn,
-                    checkOut: att.checkOut,
-                    lunchStart: att.lunchStart,
-                    lunchEnd: att.lunchEnd,
-                    workingHours: att.workingHours,
-                    status: att.status
-                })),
+            const totalHours = attendances.reduce((s, a) => s + (a.workingHours || 0), 0);
+            const cntAbsent  = attendances.filter(a => a.status === '欠勤').length;
+            const cntLate    = attendances.filter(a => a.status === '遅刻').length;
 
-                approvalRequest: approvalRequest // Add this to the returned object
-            };
+            return { employee, attendances, approvalRequest, totalHours, cntAbsent, cntLate };
         }));
-        
-        // 部署リスト照会 (フィルター用)
-        const departments = await Employee.distinct('department');
-        
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>月別勤怠照会</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">                
-                <link rel="stylesheet" href="/styles.css">
-                <style>
-                    .approval-notice {
-                        background: #f8f9fa;
-                        padding: 10px;
-                        border-radius: 5px;
-                        margin: 10px 0;
-                        border-left: 4px solid #3498db;
-                    }
-                </style>
-                <script>
-                    function updateClock() {
-                        const now = new Date();
-                        document.getElementById('current-time').textContent = 
-                            '現在時刻: ' + now.toLocaleTimeString('ja-JP');
-                    }
-                    setInterval(updateClock, 1000);
-                    window.onload = updateClock;
-                    
-                    function requestApproval(employeeId, year, month) {
-                        if (confirm('この従業員の' + year + '年' + month + '月勤怠記録を承認リクエストしますか？')) {
-                            fetch('/admin/request-approval', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    employeeId: employeeId,
-                                    year: year,
-                                    month: month
-                                })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    alert('承認リクエストが完了しました');
-                                } else {
-                                    alert('承認リクエスト中にエラーが発生しました');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                alert('承認リクエスト中にエラーが発生しました');
-                            });
-                        }
-                    }
-                    
-                    function printAttendance(employeeId, year, month) {
-                        window.open('/admin/print-attendance?employeeId=' + employeeId + 
-                                   '&year=' + year + '&month=' + month, 
-                                   '_blank');
-                    }
 
-                    function approveAttendance(employeeId, year, month) {
-                        if (confirm(employeeId + 'の' + year + '年' + month + '月勤怠記録を承認しますか？')) {
-                            fetch('/admin/approve-attendance', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    employeeId: employeeId,
-                                    year: year,
-                                    month: month
-                                })
-                            })
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error('Network response was not ok');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.success) {
-                                    alert('勤怠記録を承認しました');
-                                    location.reload();
-                                } else {
-                                    alert('エラー: ' + (data.message || '不明なエラー'));
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                alert('承認処理中にエラーが発生しました: ' + error.message);
-                            });
-                        }
-                    }
-                </script>
-            </head>
-            <body>
-                <div class="container">
-                    <div id="current-time" class="clock"></div>
-                    <h2>月別勤怠照会 (${year}年${month}月)</h2>
-                    
-                    <form action="/admin/monthly-attendance" method="GET" class="month-selector">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="year">年:</label>
-                                <input type="number" id="year" name="year" value="${year}" min="2000" max="2100" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="month">月:</label>
-                                <input type="number" id="month" name="month" value="${month}" min="1" max="12" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="department">部署:</label>
-                                <select id="department" name="department">
-                                    <option value="">全部署</option>
-                                    ${departments.map(dept => `
-                                        <option value="${dept}" ${dept === department ? 'selected' : ''}>${dept}</option>
-                                    `).join('')}
-                                </select>
-                            </div>
-                            <button type="submit" class="btn">照会</button>
-                        </div>
-                    </form>
-                    
-                    ${monthlyData.map(data => {
-                        const approvalRequest = data.approvalRequest;
-                        
-                        return `
-                            <div class="employee-attendance">
-                                <div class="employee-header">
-                                    <h3>${data.employee.name} (${data.employee.employeeId}) - ${data.employee.department}</h3>
-                                    <div class="employee-actions">
-                                        ${approvalRequest && approvalRequest.status === 'pending' ? `
-                                            <button onclick="approveAttendance('${data.employee.employeeId}', ${year}, ${month})" 
-                                                    class="btn approval-btn">承認する</button>
-                                        ` : ''}
-                                        ${approvalRequest ? `
-                                            <span class="status-badge ${approvalRequest.status}">
-                                                ${approvalRequest.status === 'pending' ? '承認待ち' : 
-                                                  approvalRequest.status === 'approved' ? '承認済み' : '差し戻し'}
-                                            </span>
-                                        ` : ''}
-                                        <button onclick="printAttendance('${data.employee.employeeId}', ${year}, ${month})" 
-                                                class="btn print-btn">勤怠表印刷</button>
-                                    </div>
-                                </div>
-                                
-                                ${approvalRequest && approvalRequest.status === 'pending' ? `
-                                    <div class="approval-notice">
-                                        <p>この従業員から${year}年${month}月の勤怠承認リクエストがあります</p>
-                                        <p>リクエスト日: ${approvalRequest.requestedAt.toLocaleDateString('ja-JP')}</p>
-                                    </div>
-                                ` : ''}
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>日付</th>
-                                        <th>出勤</th>
-                                        <th>退勤</th>
-                                        <th>昼休み時間</th>
-                                        <th>勤務時間</th>
-                                        <th>状態</th>
-                                        <th>操作</th>
-                                        <th>備考</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${data.attendances.map(att => `
-                                        <tr>
-                                            <td>${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD')}</td>
-                                            <td>${att.checkIn ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}</td>
-                                            <td>${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}</td>
-                                            <td>
-                                                ${att.lunchStart ? moment(att.lunchStart).tz('Asia/Tokyo').format('HH:mm:ss') : '-'} ～
-                                                ${att.lunchEnd ? moment(att.lunchEnd).tz('Asia/Tokyo').format('HH:mm:ss') : '-'}
-                                            </td>
-                                            <td>${att.workingHours || '-'}時間</td>
-                                            <td>${att.status}</td>
-                                            <td class="note-cell">${att.notes || '-'}</td> <!-- 비고 필드 추가 -->
-                                            <td>
-                                                <a href="/edit-attendance/${att._id}" class="btn edit-btn">編集</a>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                    ${data.attendances.length === 0 ? `
-                                        <tr>
-                                            <td colspan="7">該当月の勤怠記録がありません</td>
-                                        </tr>
-                                    ` : ''}
-                                </tbody>
-                            </table>
-                        </div>
-                      `;
-                    }).join('')}
-                    <a href="/attendance-main" class="btn">ダッシュボードに戻る</a>
-                </div>
-            </body>
-            </html>
-        `);
+        const departments = await Employee.distinct('department');
+
+        const now = moment().tz('Asia/Tokyo');
+        const yearOptions = [now.year()-1, now.year(), now.year()+1]
+            .map(y => `<option value="${y}" ${y===year?'selected':''}>${y}年</option>`).join('');
+        const monthOptions = Array.from({length:12},(_,i)=>i+1)
+            .map(m => `<option value="${m}" ${m===month?'selected':''}>${m}月</option>`).join('');
+        const deptOptions = departments
+            .map(d => `<option value="${escapeHtml(d)}" ${d===department?'selected':''}>${escapeHtml(d)}</option>`).join('');
+
+        const shell = buildPageShell({
+            title: `月別勤怠照会 ${year}年${month}月`,
+            currentPath: '/admin/monthly-attendance',
+            employee: req.session.employee,
+            isAdmin: true,
+            extraHead: `<style>
+.page-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.page-header h2 { margin:0; font-size:22px; font-weight:700; color:#0b2540; }
+.filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.filter-bar select, .filter-bar input[type=number] { padding:7px 10px; border-radius:7px; border:1px solid #d1d5db; font-size:14px; }
+.emp-block { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.07); margin-bottom:20px; overflow:hidden; }
+.emp-block-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+.emp-block-header h3 { margin:0; font-size:15px; font-weight:700; color:#0b2540; }
+.emp-stats { display:flex; gap:10px; flex-wrap:wrap; }
+.emp-stat { font-size:12px; color:#6b7280; background:#f1f5f9; padding:4px 10px; border-radius:6px; }
+.emp-stat strong { color:#0b2540; }
+.approval-notice { background:#fef3c7; border-left:3px solid #f59e0b; padding:8px 14px; font-size:13px; color:#78350f; margin:10px 14px 0; border-radius:0 6px 6px 0; }
+.tbl-wrap { overflow-x:auto; }
+.tbl-wrap table { width:100%; border-collapse:collapse; font-size:13px; }
+.tbl-wrap thead th { background:#0b2540; color:#fff; padding:9px 12px; text-align:left; white-space:nowrap; }
+.tbl-wrap tbody td { padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; white-space:nowrap; }
+.tbl-wrap tbody tr:hover td { background:#f8fafc; }
+.tbl-wrap tbody tr:last-child td { border-bottom:none; }
+.emp-footer { padding:12px 18px; display:flex; gap:8px; justify-content:flex-end; border-top:1px solid #f1f5f9; }
+</style>`
+        });
+
+        res.send(`${shell}
+<div class="page-header">
+    <a href="/admin" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <h2><i class="fa-solid fa-calendar-days" style="color:#ef4444"></i> 月別勤怠照会</h2>
+    <span style="color:#6b7280;font-size:13px">${year}年${month}月</span>
+</div>
+
+<!-- フィルター -->
+<div class="card" style="padding:14px 18px;margin-bottom:20px">
+    <form action="/admin/monthly-attendance" method="GET" class="filter-bar">
+        <select name="year">${yearOptions}</select>
+        <select name="month">${monthOptions}</select>
+        <select name="department">
+            <option value="">全部署</option>
+            ${deptOptions}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> 絞り込み</button>
+    </form>
+</div>
+
+${monthlyData.length === 0 ? `<div class="card" style="text-align:center;padding:40px;color:#6b7280">対象社員がいません</div>` : ''}
+
+${monthlyData.map(data => {
+    const { employee, attendances, approvalRequest, totalHours, cntAbsent, cntLate } = data;
+    const statusMap = { pending:['badge-warning','承認待ち'], approved:['badge-success','承認済み'], returned:['badge-danger','差し戻し'] };
+    const [bCls, bLabel] = approvalRequest ? (statusMap[approvalRequest.status] || ['badge-muted', approvalRequest.status]) : [];
+    return `
+<div class="emp-block">
+    <div class="emp-block-header">
+        <div>
+            <h3>${escapeHtml(employee.name)} <span style="font-weight:400;color:#6b7280;font-size:13px">(${escapeHtml(employee.employeeId)}) — ${escapeHtml(employee.department)}</span></h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="emp-stats">
+                <span class="emp-stat">勤務: <strong>${totalHours.toFixed(1)}h</strong></span>
+                <span class="emp-stat">遅刻: <strong>${cntLate}</strong></span>
+                <span class="emp-stat">欠勤: <strong>${cntAbsent}</strong></span>
+            </div>
+            ${approvalRequest ? `<span class="badge ${bCls}">${bLabel}</span>` : ''}
+            ${approvalRequest && approvalRequest.status === 'pending' ? `
+                <button onclick="approveAttendance('${escapeHtml(employee.employeeId)}',${year},${month})"
+                        class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> 承認</button>
+            ` : ''}
+            <button onclick="window.open('/admin/print-attendance?employeeId=${escapeHtml(employee.employeeId)}&year=${year}&month=${month}','_blank')"
+                    class="btn btn-ghost btn-sm"><i class="fa-solid fa-print"></i> 印刷</button>
+        </div>
+    </div>
+    ${approvalRequest && approvalRequest.status === 'pending' ? `
+    <div class="approval-notice">
+        <i class="fa-solid fa-bell"></i> <strong>${year}年${month}月の承認リクエストがあります</strong>
+        — リクエスト日: ${approvalRequest.requestedAt ? approvalRequest.requestedAt.toLocaleDateString('ja-JP') : '-'}
+    </div>` : ''}
+    <div class="tbl-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>日付</th>
+                    <th>出勤</th>
+                    <th>退勤</th>
+                    <th>昼休み</th>
+                    <th>勤務時間</th>
+                    <th>状態</th>
+                    <th>備考</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${attendances.length === 0 ? `<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:20px">記録なし</td></tr>` : ''}
+                ${attendances.map(att => {
+                    const statusCls = att.status === '遅刻' ? 'badge-warning' : att.status === '早退' ? 'badge-warning' : att.status === '欠勤' ? 'badge-danger' : 'badge-success';
+                    return `<tr>
+                        <td>${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD (ddd)')}</td>
+                        <td>${att.checkIn  ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm')  : '<span style="color:#9ca3af">-</span>'}</td>
+                        <td>${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#9ca3af">-</span>'}</td>
+                        <td style="color:#6b7280;font-size:12px">
+                            ${att.lunchStart ? moment(att.lunchStart).tz('Asia/Tokyo').format('HH:mm') : '-'} ～
+                            ${att.lunchEnd   ? moment(att.lunchEnd).tz('Asia/Tokyo').format('HH:mm')   : '-'}
+                        </td>
+                        <td>${att.workingHours != null ? att.workingHours + 'h' : '-'}</td>
+                        <td><span class="badge ${statusCls}">${att.status}</span>
+                            ${att.isConfirmed ? '<span class="badge badge-info" style="margin-left:2px">確定</span>' : ''}</td>
+                        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:#6b7280">${att.notes ? escapeHtml(att.notes) : '-'}</td>
+                        <td>
+                            <a href="/edit-attendance/${att._id}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen"></i></a>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>
+</div>`;
+}).join('')}
+
+<script>
+function approveAttendance(employeeId, year, month) {
+    if (!confirm(employeeId + ' の ' + year + '年' + month + '月勤怠を承認しますか？')) return;
+    fetch('/admin/approve-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId, year, month })
+    })
+    .then(r => r.json())
+    .then(d => { alert(d.success ? '承認しました' : 'エラー: ' + (d.message||'不明')); if (d.success) location.reload(); })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+</script>
+</div></body></html>`);
     } catch (error) {
         console.error('error:', error);
-        res.status(500).send(`
-            <div class="container">
-                <h2>エラー</h2>
-                <p>データ照会中にエラーが発生しました</p>
-                ${process.env.NODE_ENV === 'development' ? `<pre>${error.message}</pre>` : ''}
-                <a href="/attendance-main" class="btn">ダッシュボードに戻る</a>
-            </div>
-        `);
+        res.status(500).send(`<div style="padding:40px;font-family:sans-serif"><h2>エラー</h2><p>データ照会中にエラーが発生しました</p><a href="/admin">管理画面に戻る</a></div>`);
     }
 });
-
+        
 // 勤怠承認リクエスト処理
 router.post('/admin/request-approval', requireLogin, isAdmin, async (req, res) => {
     try {
