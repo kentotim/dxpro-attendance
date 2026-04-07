@@ -1,21 +1,25 @@
 (function () {
     'use strict';
-    var fab = document.getElementById('cb-fab');
-    var panel = document.getElementById('cb-panel');
+    var fab      = document.getElementById('cb-fab');
+    var panel    = document.getElementById('cb-panel');
     var closeBtn = document.getElementById('cb-close');
-    var msgs = document.getElementById('cb-messages');
-    var input = document.getElementById('cb-input');
-    var sendBtn = document.getElementById('cb-send');
-    var suggs = document.querySelectorAll('.cb-sug-btn');
-    var opened = false;
+    var resetBtn = document.getElementById('cb-reset');
+    var msgs     = document.getElementById('cb-messages');
+    var input    = document.getElementById('cb-input');
+    var sendBtn  = document.getElementById('cb-send');
+    var suggs    = document.querySelectorAll('.cb-sug-btn');
+    var opened   = false;
 
     if (!fab || !panel) {
         console.error('[Chatbot] #cb-fab or #cb-panel not found in DOM');
         return;
     }
 
+    var WELCOME_TEXT = 'こんにちは！👋\n\n**DXPRO AIアシスタント**です。\n勤怠・目標・休暇・給与・評価など何でも聞いてください。\n\n💡 「**今日の状況は？**」で全体サマリーを確認できます！';
+    var WELCOME_QR   = ['今日の状況は？', '今月の勤怠は？', '評価グレードは？', '何ができる？'];
+
     function renderText(t) {
-        return t
+        return String(t)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -23,7 +27,15 @@
             .replace(/\n/g, '<br>');
     }
 
-    function appendMsg(role, text, links) {
+    function attachQrHandlers(container) {
+        container.querySelectorAll('.cb-qr-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                sendMessage(btn.textContent.trim());
+            });
+        });
+    }
+
+    function appendMsg(role, text, links, quickReplies) {
         var w = document.createElement('div');
         w.className = 'cb-msg cb-' + role;
         if (role === 'bot') {
@@ -31,12 +43,20 @@
             if (links && links.length) {
                 linksHtml = '<div class="cb-links">' +
                     links.map(function (l) {
-                        return '<a href="' + l.url + '" class="cb-link-btn">' + l.label + '</a>';
+                        return '<a href="' + l.url + '" class="cb-link-btn">' + renderText(l.label) + '</a>';
+                    }).join('') + '</div>';
+            }
+            var qrHtml = '';
+            if (quickReplies && quickReplies.length) {
+                qrHtml = '<div class="cb-qr-row">' +
+                    quickReplies.map(function (qr) {
+                        return '<button class="cb-qr-btn" type="button">' + renderText(qr) + '</button>';
                     }).join('') + '</div>';
             }
             w.innerHTML =
                 '<div class="cb-bot-icon"><i class="fa-solid fa-robot"></i></div>' +
-                '<div><div class="cb-bubble">' + renderText(text) + '</div>' + linksHtml + '</div>';
+                '<div><div class="cb-bubble">' + renderText(text) + '</div>' + linksHtml + qrHtml + '</div>';
+            attachQrHandlers(w);
         } else {
             w.innerHTML = '<div class="cb-bubble">' + renderText(text) + '</div>';
         }
@@ -60,6 +80,14 @@
         if (e) e.remove();
     }
 
+    function resetChat() {
+        msgs.innerHTML = '';
+        var sa = document.getElementById('cb-suggestions');
+        if (sa) sa.style.display = '';
+        appendMsg('bot', WELCOME_TEXT, [], WELCOME_QR);
+        if (input) { input.value = ''; input.style.height = 'auto'; }
+    }
+
     function sendMessage(text) {
         text = (text || '').trim();
         if (!text) return;
@@ -72,20 +100,20 @@
         fetch('/api/chatbot', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text })
+            body: JSON.stringify({ message: text, context: {} })
         })
         .then(function (r) { return r.json(); })
         .then(function (d) {
             hideTyping();
             if (d.ok) {
-                appendMsg('bot', d.reply.text, d.reply.links);
+                appendMsg('bot', d.reply.text, d.reply.links, d.reply.quickReplies);
             } else {
-                appendMsg('bot', '\u26a0\ufe0f ' + (d.error || '\u30a8\u30e9\u30fc'), []);
+                appendMsg('bot', '⚠️ ' + (d.error || 'エラーが発生しました'), []);
             }
         })
         .catch(function () {
             hideTyping();
-            appendMsg('bot', '\u26a0\ufe0f \u901a\u4fe1\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f', []);
+            appendMsg('bot', '⚠️ 通信エラーが発生しました。再度お試しください。', []);
         })
         .finally(function () {
             if (sendBtn) sendBtn.disabled = false;
@@ -98,7 +126,7 @@
             panel.classList.add('cb-open');
             opened = true;
             if (msgs.childElementCount === 0) {
-                appendMsg('bot', 'こんにちは！👋\n\nDXPRO AIアシスタントです。勤怠・目標・休暇・評価などについて何でも聞いてください。', []);
+                appendMsg('bot', WELCOME_TEXT, [], WELCOME_QR);
             }
             setTimeout(function () { if (input) input.focus(); }, 100);
         } else {
@@ -111,6 +139,12 @@
         closeBtn.addEventListener('click', function () {
             panel.classList.remove('cb-open');
             opened = false;
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+            resetChat();
         });
     }
 

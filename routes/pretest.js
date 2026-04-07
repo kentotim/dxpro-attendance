@@ -914,171 +914,243 @@ router.get('/pretest/:lang', requireLogin, (req, res) => {
 // 入社前テスト実施ページ
 router.get('/pretest', requireLogin, (req, res) => {
     renderPage(req, res, '入社前テスト', '入社前テスト実施', `
-        <div class="card-enterprise">
-            <h5 style="margin-bottom:12px">入社前テスト（面談＋スクリプト課題）</h5>
-            <p style="color:var(--muted)">全40問：Q1〜Q20 面接形式（Java/JavaScriptの現場で聞かれる質問／短文回答）20問、Q21〜Q40 スクリプト/コード課題（テキストで回答）20問。合計40点満点。制限時間は 90 分。</p>
+<style>
+/* ── テストページ専用スタイル ── */
+.pt-hero{background:linear-gradient(135deg,#1e40af 0%,#7c3aed 100%);border-radius:16px;padding:32px 28px 28px;color:#fff;margin-bottom:24px}
+.pt-hero h2{font-size:1.5rem;font-weight:800;margin:0 0 8px}
+.pt-hero p{margin:0;opacity:.85;font-size:.95rem;line-height:1.6}
+.pt-meta{display:flex;gap:18px;margin-top:16px;flex-wrap:wrap}
+.pt-meta-item{background:rgba(255,255,255,.15);border-radius:10px;padding:8px 16px;font-size:.85rem;display:flex;align-items:center;gap:7px}
+.pt-meta-item i{font-size:1rem;opacity:.9}
 
-            <form id="pretest-form" style="display:flex;flex-direction:column;gap:12px">
-                <div id="pretest-timer" style="font-weight:700;color:#0b5fff;margin-bottom:6px">経過時間: 00:00:00</div>
-                <label>氏名<input type="text" name="name" required /></label>
-                <label>メール<input type="email" name="email" required /></label>
+/* 進捗バー */
+.pt-progress-wrap{background:#f1f5f9;border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+.pt-progress-bar-bg{flex:1;height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.pt-progress-bar-fill{height:100%;background:linear-gradient(90deg,#2563eb,#7c3aed);border-radius:999px;transition:width .3s}
+.pt-progress-label{font-size:.82rem;font-weight:700;color:#4b5563;white-space:nowrap;min-width:60px;text-align:right}
 
-                <!-- Q1-Q20: interview short-answer (free text) -->
-                <div>
-                    <h4 style="margin:8px 0">面接で聞かれそうな質問（短文で答えてください）</h4>
-                    ${(() => {
-                        const qs = [
-                            'Javaでメモリ管理はどのように行われますか？',
-                            'Javaのガベージコレクションとは何ですか？',
-                            'Javaの例外（checked/unchecked）の違いを説明してください',
-                            'JavaScriptのイベントループを簡潔に説明してください',
-                            'this の挙動（JavaScript）について説明してください',
-                            'Spring Bootの主な利点を2つ挙げてください',
-                            'DI（依存性注入）とは何ですか？',
-                            'RESTとSOAPの主な違いを説明してください',
-                            'GETとPOSTの使い分けを説明してください',
-                            'トランザクションの隔離レベルとは何ですか？簡単に',
-                            'SQLインデックスの利点と欠点を1つずつ述べてください',
-                            'XSS攻撃を防ぐ一般的な対策を述べてください',
-                            '非同期処理を行う際の注意点を1つ挙げてください',
-                            'クロスプラットフォームでの文字コード問題の対処法を挙げてください',
-                            'マイクロサービスの利点を2つ挙げてください',
-                            'オブジェクトの不変性（immutable）の利点を説明してください',
-                            '依存関係のバージョン衝突（dependency hell）にどう対処しますか？',
-                            'CI/CDで必須だと思うチェックを1つ挙げてください',
-                            'ロギングで重要なポイントは何ですか？',
-                            'パフォーマンスチューニングで最初に見る指標は何ですか？'
-                        ];
-                        return qs.map((q,i)=>{
-                            return `
-                                <div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px">
-                                    <div style="font-weight:700;margin-bottom:8px">Q${i+1}. ${q}</div>
-                                    <input type="text" name="q${i+1}" placeholder="数語〜短文で答えてください" />
-                                </div>
-                            `;
-                        }).join('');
-                    })()}
-                </div>
+/* タイマー */
+.pt-timer-box{display:inline-flex;align-items:center;gap:8px;background:#fff;border:2px solid #dbeafe;border-radius:10px;padding:8px 16px;font-size:1.1rem;font-weight:800;color:#1d4ed8;margin-bottom:16px}
+.pt-timer-box.warn{border-color:#fca5a5;color:#dc2626;animation:ptPulse 1s infinite}
+@keyframes ptPulse{0%,100%{opacity:1}50%{opacity:.6}}
 
-                <!-- Q21-Q40: script/code textareas -->
-                <div>
-                    <h4 style="margin:8px 0">スクリプト／コード課題（テキストで実装を記述してください）</h4>
-                    ${(() => {
-                        const tasks = [];
-                        for (let i=21;i<=40;i++) {
-                            const title = i<=30 ? `短いコード修正・実装 ${i-20}` : `少し長めのスクリプト課題 ${i-20}`;
-                            const prompt = i===21 ? 'NullPointerExceptionを回避する修正（簡単なJavaメソッド）' :
-                                          i===22 ? '配列の重複を取り除くJavaScript関数（短め）' :
-                                          i===23 ? '簡単なRESTエンドポイントの雛形（Spring Boot）' :
-                                          i===24 ? 'PreparedStatementを使ったSELECT例（Java）' :
-                                          i===25 ? '非同期にAPIを取得してconsole.logするfetch例（JS）' :
-                                          i===26 ? 'リストをソートして返すJavaメソッド' :
-                                          i===27 ? 'フォーム入力のサニタイズ簡易例（JS）' :
-                                          i===28 ? '例外処理を追加したファイル読み込み例（Java）' :
-                                          i===29 ? 'JSONを解析してフィールドを取得するJSの例' :
-                                          i===30 ? '簡単なクエリを実行して結果を処理する擬似コード（任意言語）' :
-                                          i===31 ? '小さなアルゴリズム: 配列の最大値を返す関数（JS）' :
-                                          i===32 ? '文字列を逆順にするメソッド（Java）' :
-                                          i===33 ? '認証用のJWTを検証する擬似コード（任意言語）' :
-                                          i===34 ? '再帰を使った階乗実装（JS）' :
-                                          i===35 ? 'スレッドセーフなカウンタの実装（Java、概念で可）' :
-                                          i===36 ? 'バルク挿入を行う擬似コード（SQL/Java）' :
-                                          i===37 ? 'APIから取得したデータをページネートするロジック（JS）' :
-                                          i===38 ? '簡単な例外ログの書き方（Java）' :
-                                          i===39 ? '同じ処理を同期→非同期に切り替える例（JS、概念可）' :
-                                          'ユーティリティ関数の実装例';
-                            tasks.push({ id: `q${i}`, title, prompt });
-                        }
-                        return tasks.map(t=>`
-                            <div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px">
-                                <div style="font-weight:700;margin-bottom:8px">${t.id}. ${t.title} - ${t.prompt}</div>
-                                <textarea name="${t.id}" id="${t.id}" placeholder="ここにコードや実装を記述してください" style="min-height:120px;padding:10px;border-radius:6px;border:1px solid #ddd;font-family:monospace"></textarea>
-                            </div>
-                        `).join('');
-                    })()}
-                </div>
+/* セクションヘッダ */
+.pt-section-hdr{display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;border-radius:0 10px 10px 0;padding:10px 16px;margin:20px 0 12px;font-weight:700;color:#1e3a8a}
+.pt-section-hdr.script{border-left-color:#7c3aed;background:linear-gradient(90deg,#f5f3ff,#fdf4ff)}
 
-                <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary" id="pretest-submit">送信</button></div>
-            </form>
-            <div id="pretest-result" style="margin-top:10px;color:var(--muted)"></div>
+/* 設問カード */
+.pt-qcard{background:#fff;border-radius:12px;border:1.5px solid #e5e7eb;padding:16px 18px;margin-bottom:10px;transition:border-color .2s,box-shadow .2s}
+.pt-qcard:focus-within{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.pt-qcard.answered{border-color:#bbf7d0}
+.pt-qnum{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:800;font-size:.82rem;flex-shrink:0}
+.pt-qnum.code{background:#ede9fe;color:#7c3aed}
+.pt-qtitle{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.pt-qtext{font-weight:600;font-size:.93rem;color:#1f2937;line-height:1.5}
+.pt-qcard input[type=text]{width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.9rem;outline:none;transition:border-color .2s;box-sizing:border-box}
+.pt-qcard input[type=text]:focus{border-color:#2563eb}
+.pt-qcard textarea{width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.88rem;font-family:'Fira Code','Courier New',monospace;outline:none;resize:vertical;min-height:130px;transition:border-color .2s;box-sizing:border-box;line-height:1.6;color:#1f2937;background:#fafafa}
+.pt-qcard textarea:focus{border-color:#7c3aed;background:#fff}
+
+/* ステップナビ */
+.pt-steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.pt-step-btn{padding:5px 14px;border-radius:999px;border:1.5px solid #e5e7eb;background:#fff;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;color:#6b7280}
+.pt-step-btn.active{background:#2563eb;border-color:#2563eb;color:#fff}
+.pt-step-btn.done{background:#d1fae5;border-color:#6ee7b7;color:#065f46}
+
+/* 送信ボタン */
+.pt-submit-bar{background:#fff;border-radius:12px;border:1.5px solid #e5e7eb;padding:20px 22px;margin-top:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pt-submit-bar .pt-score-preview{font-size:.9rem;color:#6b7280}
+.pt-submit-btn{padding:12px 36px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .2s}
+.pt-submit-btn:disabled{opacity:.45;cursor:not-allowed}
+.pt-result-box{background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:20px 22px;margin-top:16px;display:none}
+.pt-result-box.show{display:block}
+.pt-result-box h3{margin:0 0 8px;color:#166534;font-size:1.2rem}
+
+/* セクション表示切替 */
+.pt-section{display:none}
+.pt-section.active{display:block}
+
+/* 受験者情報パネル */
+.pt-info-panel{background:#fff;border-radius:12px;border:1.5px solid #e5e7eb;padding:18px 20px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.pt-info-panel{grid-template-columns:1fr}}
+.pt-info-panel label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:.88rem;color:#374151}
+.pt-info-panel input{padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.9rem;outline:none}
+.pt-info-panel input:focus{border-color:#2563eb}
+</style>
+
+<!-- ヒーローバナー -->
+<div class="pt-hero">
+    <h2><i class="fa-solid fa-graduation-cap"></i> 入社前テスト</h2>
+    <p>面接・スクリプト課題あわせて全40問。制限時間は90分です。<br>焦らず、自分の言葉で答えてください。</p>
+    <div class="pt-meta">
+        <div class="pt-meta-item"><i class="fa-solid fa-list-check"></i> 全40問（面接20問 + コード20問）</div>
+        <div class="pt-meta-item"><i class="fa-solid fa-clock"></i> 制限時間 90分</div>
+        <div class="pt-meta-item"><i class="fa-solid fa-star"></i> 満点 40点</div>
+    </div>
+</div>
+
+<!-- タイマー -->
+<div class="pt-timer-box" id="pt-timer"><i class="fa-solid fa-stopwatch"></i> <span id="pt-timer-display">00:00:00</span></div>
+
+<!-- 進捗バー -->
+<div class="pt-progress-wrap">
+    <div class="pt-progress-bar-bg"><div class="pt-progress-bar-fill" id="pt-pbar" style="width:0%"></div></div>
+    <div class="pt-progress-label" id="pt-pcount">0 / 40</div>
+</div>
+
+<!-- ステップナビゲーション -->
+<div class="pt-steps">
+    <button class="pt-step-btn active" id="step-info-btn" onclick="ptShowSection('info')">📋 受験者情報</button>
+    <button class="pt-step-btn" id="step-q1-btn" onclick="ptShowSection('q1')">💬 面接問題（Q1〜10）</button>
+    <button class="pt-step-btn" id="step-q2-btn" onclick="ptShowSection('q2')">💬 面接問題（Q11〜20）</button>
+    <button class="pt-step-btn" id="step-c1-btn" onclick="ptShowSection('c1')">💻 コード課題（Q21〜30）</button>
+    <button class="pt-step-btn" id="step-c2-btn" onclick="ptShowSection('c2')">💻 コード課題（Q31〜40）</button>
+    <button class="pt-step-btn" id="step-submit-btn" onclick="ptShowSection('submit')">✅ 確認・送信</button>
+</div>
+
+<form id="pt-form">
+
+<!-- ── セクション: 受験者情報 ── -->
+<div class="pt-section active" id="pt-sec-info">
+    <div class="pt-info-panel">
+        <label>氏名 <input type="text" name="name" id="pt-name" placeholder="山田 太郎" required /></label>
+        <label>メールアドレス <input type="email" name="email" id="pt-email" placeholder="example@email.com" required /></label>
+    </div>
+    <div style="text-align:right"><button type="button" class="pt-submit-btn" onclick="ptShowSection('q1')" style="padding:10px 28px;font-size:.95rem">次へ：面接問題 <i class="fa-solid fa-arrow-right"></i></button></div>
+</div>
+
+<!-- ── セクション: 面接 Q1〜10 ── -->
+<div class="pt-section" id="pt-sec-q1">
+    <div class="pt-section-hdr"><i class="fa-solid fa-comments"></i> 面接問題（Q1〜Q10）― 短文で答えてください</div>
+    ${[
+        'Javaでメモリ管理はどのように行われますか？',
+        'Javaのガベージコレクションとは何ですか？',
+        'Javaの例外（checked / unchecked）の違いを説明してください',
+        'JavaScriptのイベントループを簡潔に説明してください',
+        'this の挙動（JavaScript）について説明してください',
+        'Spring Bootの主な利点を2つ挙げてください',
+        'DI（依存性注入）とは何ですか？',
+        'RESTとSOAPの主な違いを説明してください',
+        'GETとPOSTの使い分けを説明してください',
+        'トランザクションの隔離レベルとは何ですか？'
+    ].map((q,i)=>`
+    <div class="pt-qcard" id="ptcard-q${i+1}">
+        <div class="pt-qtitle">
+            <span class="pt-qnum">Q${i+1}</span>
+            <div class="pt-qtext">${q}</div>
         </div>
+        <input type="text" name="q${i+1}" id="pt-q${i+1}" placeholder="数語〜短文で答えてください" oninput="ptMarkAnswered(${i+1},this)" />
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:12px">
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('info')" style="background:#6b7280;padding:9px 22px;font-size:.9rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('q2')" style="padding:9px 22px;font-size:.9rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+</div>
 
-        <script>
-            (function(){
-                // start timer at page load
-                const startedAt = new Date();
-                const pretestTimerEl = document.getElementById('pretest-timer');
-                function fmtTime(s){ const h = String(Math.floor(s/3600)).padStart(2,'0'); const m = String(Math.floor((s%3600)/60)).padStart(2,'0'); const sec = String(s%60).padStart(2,'0'); return h+':'+m+':'+sec; }
-                let _pretestInterval = setInterval(()=>{ try{ const sec = Math.round((Date.now() - startedAt.getTime())/1000); if(pretestTimerEl) pretestTimerEl.textContent = '経過時間: ' + fmtTime(sec); }catch(e){} }, 1000);
-                const btn = document.getElementById('pretest-submit');
-                btn.addEventListener('click', async ()=>{
-                    const form = document.getElementById('pretest-form');
-                    const f = new FormData(form);
+<!-- ── セクション: 面接 Q11〜20 ── -->
+<div class="pt-section" id="pt-sec-q2">
+    <div class="pt-section-hdr"><i class="fa-solid fa-comments"></i> 面接問題（Q11〜Q20）― 短文で答えてください</div>
+    ${[
+        'SQLインデックスの利点と欠点を1つずつ述べてください',
+        'XSS攻撃を防ぐ一般的な対策を述べてください',
+        '非同期処理を行う際の注意点を1つ挙げてください',
+        'クロスプラットフォームでの文字コード問題の対処法を挙げてください',
+        'マイクロサービスの利点を2つ挙げてください',
+        'オブジェクトの不変性（immutable）の利点を説明してください',
+        '依存関係のバージョン衝突（dependency hell）にどう対処しますか？',
+        'CI/CDで必須だと思うチェックを1つ挙げてください',
+        'ロギングで重要なポイントは何ですか？',
+        'パフォーマンスチューニングで最初に見る指標は何ですか？'
+    ].map((q,i)=>`
+    <div class="pt-qcard" id="ptcard-q${i+11}">
+        <div class="pt-qtitle">
+            <span class="pt-qnum">Q${i+11}</span>
+            <div class="pt-qtext">${q}</div>
+        </div>
+        <input type="text" name="q${i+11}" id="pt-q${i+11}" placeholder="数語〜短文で答えてください" oninput="ptMarkAnswered(${i+11},this)" />
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:12px">
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('q1')" style="background:#6b7280;padding:9px 22px;font-size:.9rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('c1')" style="padding:9px 22px;font-size:.9rem">次へ：コード課題 <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+</div>
 
-                    const answers = {};
-                    for (let i=1;i<=40;i++) answers['q'+i] = (f.get('q'+i) || '').toString();
+<!-- ── セクション: コード Q21〜30 ── -->
+<div class="pt-section" id="pt-sec-c1">
+    <div class="pt-section-hdr script"><i class="fa-solid fa-code"></i> コード課題（Q21〜Q30）― コードや実装方針を記述してください</div>
+    ${[
+        {q:'NullPointerExceptionを回避する修正（JavaのnullチェックまたはOptional使用）'},
+        {q:'配列の重複を取り除くJavaScript関数（Set活用またはfilter）'},
+        {q:'簡単なRESTエンドポイントの雛形（Spring Boot）'},
+        {q:'PreparedStatementを使ったSELECTの例（Java）'},
+        {q:'非同期にAPIを取得してconsole.logするfetch例（JavaScript）'},
+        {q:'リストをソートして返すJavaメソッド'},
+        {q:'フォーム入力のサニタイズ簡易例（JavaScript）'},
+        {q:'例外処理を追加したファイル読み込み例（Java）'},
+        {q:'JSONを解析してフィールドを取得するJavaScriptの例'},
+        {q:'クエリを実行して結果を処理する擬似コード（任意言語）'},
+    ].map((t,i)=>`
+    <div class="pt-qcard" id="ptcard-q${i+21}">
+        <div class="pt-qtitle">
+            <span class="pt-qnum code">Q${i+21}</span>
+            <div class="pt-qtext">${t.q}</div>
+        </div>
+        <textarea name="q${i+21}" id="pt-q${i+21}" placeholder="ここにコードや実装方針を記述してください" oninput="ptMarkAnswered(${i+21},this)"></textarea>
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:12px">
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('q2')" style="background:#6b7280;padding:9px 22px;font-size:.9rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('c2')" style="padding:9px 22px;font-size:.9rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+</div>
 
-                    // grading: simple heuristics
-                    let score = 0;
+<!-- ── セクション: コード Q31〜40 ── -->
+<div class="pt-section" id="pt-sec-c2">
+    <div class="pt-section-hdr script"><i class="fa-solid fa-code"></i> コード課題（Q31〜Q40）― コードや実装方針を記述してください</div>
+    ${[
+        {q:'配列の最大値を返す関数（JavaScript）'},
+        {q:'文字列を逆順にするメソッド（Java）'},
+        {q:'認証用のJWTを検証する擬似コード（任意言語）'},
+        {q:'再帰を使った階乗実装（JavaScript）'},
+        {q:'スレッドセーフなカウンタの実装（Java、概念で可）'},
+        {q:'バルク挿入を行う擬似コード（SQL / Java）'},
+        {q:'APIから取得したデータをページネートするロジック（JavaScript）'},
+        {q:'簡単な例外ログの書き方（Java）'},
+        {q:'同じ処理を同期→非同期に切り替える例（JavaScript、概念可）'},
+        {q:'ユーティリティ関数の実装例（任意言語）'},
+    ].map((t,i)=>`
+    <div class="pt-qcard" id="ptcard-q${i+31}">
+        <div class="pt-qtitle">
+            <span class="pt-qnum code">Q${i+31}</span>
+            <div class="pt-qtext">${t.q}</div>
+        </div>
+        <textarea name="q${i+31}" id="pt-q${i+31}" placeholder="ここにコードや実装方針を記述してください" oninput="ptMarkAnswered(${i+31},this)"></textarea>
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:12px">
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('c1')" style="background:#6b7280;padding:9px 22px;font-size:.9rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+        <button type="button" class="pt-submit-btn" onclick="ptShowSection('submit')" style="padding:9px 22px;font-size:.9rem">確認・送信へ <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+</div>
 
-                    // Q1-Q20: keyword match sets (basic expected keywords for interview answers)
-                    const interviewKeywords = {
-                        q1: ['gc','ガベージ','メモリ','heap'], q2: ['ガベージ','自動','回収'], q3: ['checked','unchecked','チェック'], q4: ['event loop','イベント'], q5: ['this','コンテキスト','参照'],
-                        q6: ['設定','起動','自動設定'], q7: ['DI','依存性注入'], q8: ['REST','HTTP','リソース'], q9: ['GET','POST','HTTP'], q10: ['隔離','isolation'],
-                        q11: ['インデックス','検索','高速'], q12: ['XSS','エスケープ','サニタイズ'], q13: ['async','非同期'], q14: ['UTF-8','エンコード'], q15: ['マイクロサービス','分割'],
-                        q16: ['immutable','不変'], q17: ['バージョン','依存'], q18: ['テスト','ユニット'], q19: ['ログ','出力','context'], q20: ['メモリ','リーク','増加']
-                    };
-                    for (let i=1;i<=20;i++){
-                        const k = 'q'+i; const txt = (answers[k]||'').toLowerCase();
-                        if (!txt) continue;
-                        const kws = interviewKeywords[k] || [];
-                        if (kws.some(w => txt.indexOf(w) !== -1)) score += 1;
-                    }
+<!-- ── セクション: 確認・送信 ── -->
+<div class="pt-section" id="pt-sec-submit">
+    <div class="pt-section-hdr"><i class="fa-solid fa-paper-plane"></i> 確認・送信</div>
+    <div id="pt-check-summary" style="background:#fff;border-radius:12px;border:1.5px solid #e5e7eb;padding:16px 18px;margin-bottom:16px;font-size:.9rem;color:#374151;line-height:1.8"></div>
+    <div class="pt-submit-bar">
+        <div class="pt-score-preview" id="pt-preview-text">回答を確認して送信してください</div>
+        <div style="display:flex;gap:10px;align-items:center">
+            <button type="button" class="pt-submit-btn" onclick="ptShowSection('c2')" style="background:#6b7280;padding:10px 22px;font-size:.9rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+            <button type="button" class="pt-submit-btn" id="pt-submit-btn">送信する <i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+    <div class="pt-result-box" id="pt-result"></div>
+</div>
 
-                    // Q21-Q40: code heuristics - look for indicative tokens
-                    const codeKeywords = {
-                        q21: [/new\s+ArrayList|names.add|ArrayList/], q22: [/new\s+Set|filter|\bunique\b|new Set/], q23: [/@RestController|@GetMapping|@RequestMapping/], q24: [/prepareStatement|PreparedStatement|SELECT/],
-                        q25: [/fetch\(|axios|XMLHttpRequest/], q26: [/sort\(|Collections\.sort/], q27: [/sanitize|escape|replace/], q28: [/try\s*\{|catch\s*\(|Files\.readAllLines/], q29: [/JSON\.parse|JSON\.stringify|\.json\(/], q30: [/SELECT|executeQuery|ResultSet/],
-                        q31: [/Math\.max|for\s*\(|reduce\(/], q32: [/StringBuilder|new\s+StringBuilder|reverse/], q33: [/JWT|token|verify/], q34: [/function\s*\(|=>|recurs/i], q35: [/synchronized|AtomicInteger|volatile/], q36: [/batch|executeBatch|INSERT/],
-                        q37: [/slice\(|limit\(|page/], q38: [/logger|log\.|Log4j|slf4j/], q39: [/async|await|Promise/], q40: [/function|def|public\s+static/]
-                    };
-                    for (let i=21;i<=40;i++){
-                        const k = 'q'+i; const txt = (answers[k]||'');
-                        if (!txt) continue;
-                        const kws = codeKeywords[k] || [];
-                        if (kws.some(re => (typeof re === 'string' ? txt.indexOf(re) !== -1 : re.test(txt)))) score += 1;
-                    }
+</form>
 
-                    const total = 40;
-                    const name = f.get('name') || '';
-                    const result = document.getElementById('pretest-result');
-                    result.textContent = name + ' さんのスコア: ' + score + '/' + total;
-                    btn.textContent = '送信済み';
-                    btn.disabled = true;
-
-                    // timing
-                    const endedAt = new Date();
-                    const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime())/1000);
-                    try{ clearInterval(_pretestInterval); }catch(e){}
-
-                    try {
-                        const payload = { name: name, email: f.get('email') || '', answers, score, total, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationSeconds, lang: 'common' };
-                        const resp = await fetch('/pretest/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                        const j = await resp.json();
-                        if (!j.ok) {
-                            result.textContent += '（保存に失敗しました）';
-                        } else {
-                            result.textContent += '（保存しました）';
-                        }
-                    } catch(e) {
-                        console.error(e);
-                        result.textContent += '（送信エラー）';
-                    }
-                });
-            })();
-        </script>
+<script src="/pretest-ui.js"></script>
     `);
 });
+
 
 // 入社前テスト送信API（担当者へメール）
 router.post('/pretest/submit', requireLogin, async (req, res) => {
