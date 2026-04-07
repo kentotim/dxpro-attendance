@@ -2,6 +2,7 @@
 // routes/admin.js - 管理者機能
 // ==============================
 const router = require('express').Router();
+const bcrypt = require('bcryptjs');
 const moment = require('moment-timezone');
 const pdf = require('html-pdf');
 const { User, Employee, Attendance, ApprovalRequest, LeaveRequest, PayrollSlip, Goal } = require('../models');
@@ -73,6 +74,11 @@ router.get('/admin', requireLogin, isAdmin, async (req, res) => {
                     <a class="admin-card" href="/board">
                         <div class="admin-head"><div class="admin-icon">📣</div><div class="admin-title">掲示板管理</div></div>
                         <div class="admin-desc">掲示板の投稿管理・ピン留め・削除を行います。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/users">
+                        <div class="admin-head"><div class="admin-icon">🔑</div><div class="admin-title">ユーザー権限管理</div></div>
+                        <div class="admin-desc">管理者権限の付与・剥奪、パスワードリセットを行います。</div>
                     </a>
                 </div>
             </div>
@@ -1157,5 +1163,94 @@ router.get('/admin/view-attendance/:userId/:year/:month', requireLogin, isAdmin,
 });
 
 // 一般ユーザー勤怠表印刷ページ
+
+// ユーザー権限管理
+router.get('/admin/users', requireLogin, isAdmin, async (req, res) => {
+    try {
+        const users = await User.find({}, 'username isAdmin createdAt').lean();
+        const rows = users.map(u => `
+            <tr>
+                <td>${escapeHtml(u.username)}</td>
+                <td>
+                    <span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">
+                        ${u.isAdmin ? '👑 管理者' : '一般'}
+                    </span>
+                </td>
+                <td>
+                    <form method="POST" action="/admin/users/toggle-admin" style="display:inline">
+                        <input type="hidden" name="userId" value="${u._id}">
+                        <input type="hidden" name="isAdmin" value="${u.isAdmin ? '0' : '1'}">
+                        <button type="submit" class="btn btn-sm ${u.isAdmin ? 'btn-danger' : 'btn-success'}">
+                            ${u.isAdmin ? '管理者権限を剥奪' : '管理者に昇格'}
+                        </button>
+                    </form>
+                    <form method="POST" action="/admin/users/reset-password" style="display:inline;margin-left:8px" onsubmit="return confirm('パスワードをリセットしますか？')">
+                        <input type="hidden" name="userId" value="${u._id}">
+                        <input type="text" name="newPassword" placeholder="新しいパスワード" required minlength="4" style="width:140px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+                        <button type="submit" class="btn btn-sm btn-warning">リセット</button>
+                    </form>
+                </td>
+            </tr>
+        `).join('');
+
+        const html = `
+        <style>
+            .users-table{width:100%;border-collapse:collapse;margin-top:16px}
+            .users-table th,.users-table td{padding:12px 14px;border-bottom:1px solid #e9ecef;text-align:left;font-size:14px}
+            .users-table th{background:#f8f9fa;font-weight:700;color:#374151}
+            .users-table tr:hover td{background:#f5f7fb}
+            .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+            .badge-admin{background:#fef3c7;color:#92400e}
+            .badge-user{background:#e0f2fe;color:#0369a1}
+            .btn-sm{padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600}
+            .btn-success{background:#d1fae5;color:#065f46}
+            .btn-danger{background:#fee2e2;color:#991b1b}
+            .btn-warning{background:#fef9c3;color:#854d0e}
+            .btn-sm:hover{opacity:0.8}
+            .alert-success{background:#d1fae5;color:#065f46;padding:10px 16px;border-radius:8px;margin-bottom:16px}
+            .alert-error{background:#fee2e2;color:#991b1b;padding:10px 16px;border-radius:8px;margin-bottom:16px}
+        </style>
+        <div style="max-width:900px;margin:0 auto">
+            <h2 style="margin-bottom:4px">🔑 ユーザー権限管理</h2>
+            <p style="color:#6b7280;margin-bottom:16px">管理者権限の付与・剥奪およびパスワードリセットを行います。</p>
+            ${req.query.success === 'admin' ? '<div class="alert-success">✅ 管理者権限を更新しました。</div>' : ''}
+            ${req.query.success === 'password' ? '<div class="alert-success">✅ パスワードをリセットしました。</div>' : ''}
+            ${req.query.error ? '<div class="alert-error">⚠️ エラーが発生しました。</div>' : ''}
+            <table class="users-table">
+                <thead><tr><th>ユーザー名</th><th>権限</th><th>操作</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div style="margin-top:20px"><a href="/admin" class="btn btn--ghost">← 管理者メニューに戻る</a></div>
+        </div>
+        `;
+        renderPage(req, res, 'ユーザー権限管理', 'ユーザー権限管理', html);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('エラーが発生しました');
+    }
+});
+
+router.post('/admin/users/toggle-admin', requireLogin, isAdmin, async (req, res) => {
+    try {
+        const { userId, isAdmin: newVal } = req.body;
+        await User.findByIdAndUpdate(userId, { isAdmin: newVal === '1' });
+        res.redirect('/admin/users?success=admin');
+    } catch (err) {
+        console.error(err);
+        res.redirect('/admin/users?error=1');
+    }
+});
+
+router.post('/admin/users/reset-password', requireLogin, isAdmin, async (req, res) => {
+    try {
+        const { userId, newPassword } = req.body;
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await User.findByIdAndUpdate(userId, { password: hashed });
+        res.redirect('/admin/users?success=password');
+    } catch (err) {
+        console.error(err);
+        res.redirect('/admin/users?error=1');
+    }
+});
 
 module.exports = router;

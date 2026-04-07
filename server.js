@@ -25,6 +25,16 @@ app.use(session({
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
+// セッション確認用デバッグエンドポイント（一時）
+app.get('/debug-session', (req, res) => {
+    res.json({
+        userId: req.session.userId,
+        username: req.session.username,
+        isAdmin: req.session.isAdmin,
+        employeeName: req.session.employee ? req.session.employee.name : null
+    });
+});
+
 // ルート登録
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/attendance'));
