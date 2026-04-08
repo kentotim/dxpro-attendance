@@ -4340,7 +4340,7 @@ function getErrorMessageJP(errorCode) {
 }
 
 // サーバー起動
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, async () => {
     await createAdminUser();
     

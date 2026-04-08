@@ -91,8 +91,9 @@ async function createAdminUser() {
 }
 
 // サーバー起動
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
+const PORT = process.env.PORT || 10000;
+
+app.listen(PORT, '0.0.0.0', async () => {
     await createAdminUser();
 
     const admin = await User.findOne({ username: 'admin' });
@@ -102,8 +103,7 @@ app.listen(PORT, async () => {
         passwordMatch: admin ? bcrypt.compareSync('admin1234', admin.password) : false
     });
 
-    // 通知スケジューラー起動
     require('./lib/notificationScheduler').startScheduler();
 
-    console.log(`サーバーが http://localhost:${PORT} で実行中です。`);
+    console.log(`Server running on port ${PORT}`);
 });
