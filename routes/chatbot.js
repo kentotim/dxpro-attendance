@@ -8,6 +8,7 @@ const {
     User, Employee, Attendance, Goal, LeaveRequest,
     PayrollSlip, ApprovalRequest, CompanyRule, DailyReport
 } = require('../models');
+const { computeSemiAnnualGrade } = require('../lib/helpers');
 
 function jst() { return moment().tz('Asia/Tokyo'); }
 
@@ -301,49 +302,46 @@ async function generateReply(intent, userId, employee, originalText, sessionCont
         }
 
         case 'grade_status': case 'grade_improve': {
-            const [atts, gls, ldv] = await Promise.all([
-                Attendance.find({ userId, date: { $gte: sixMonthsAgo } }),
-                Goal.find({ ownerId: employee._id }).lean(),
-                LeaveRequest.find({ userId, status: 'approved', createdAt: { $gte: sixMonthsAgo } })
-            ]);
-            const lc4 = atts.filter(a=>a.status==='遅刻').length;
-            const ec2 = atts.filter(a=>a.status==='早退').length;
-            const ac2 = atts.filter(a=>a.status==='欠勤').length;
-            const ots = atts.reduce((s,a)=>s+(a.overtimeHours||0),0);
-            const gav = gls.length ? Math.round(gls.reduce((s,g)=>s+(g.progress||0),0)/gls.length) : 0;
-            const ir  = (lc4+ec2)/Math.max(1,atts.length);
-            const pu  = Math.max(0,Math.round(10-ir*40));
-            const ar  = ac2/Math.max(1,atts.length+ac2);
-            const st2 = Math.max(0,Math.round(10-ar*50));
-            const as2 = pu+st2+7;
-            const gs2 = Math.round(Math.min(30,(gav/100)*30));
-            const mo  = ots/6;
-            const os2 = mo>=40?5:mo>=15?7:10;
-            const ls2 = Math.min(10,6+ldv.length);
-            const tot2 = as2+gs2+ls2+os2+16;
-            const gr  = tot2>=88?'S':tot2>=75?'A':tot2>=60?'B':tot2>=45?'C':'D';
-            const nt  = gr==='S'?null:gr==='A'?88:gr==='B'?75:gr==='C'?60:45;
-            const nl  = gr==='S'?null:gr==='A'?'S':gr==='B'?'A':gr==='C'?'B':'C';
+            // ダッシュボードと同じ computeSemiAnnualGrade() を使用して値を統一
+            const semi = await computeSemiAnnualGrade(userId, employee);
+            const { grade: gr, score: tot2, breakdown } = semi;
+            const bd = breakdown || {};
+            const atScore = bd.attendanceScore ?? 0;
+            const goScore = bd.goalScore      ?? 0;
+            const quScore = bd.qualityScore ?? bd.payrollScore ?? 0;
+            const otScore = bd.overtimeScore  ?? 0;
+            const lvScore = bd.leaveScore     ?? 0;
+
+            // 8段階グレード体系での次グレード計算
+            const gradeThresholds = { 'S+': null, 'S': 96, 'A+': 88, 'A': 78, 'B+': 67, 'B': 55, 'C': 43, 'D': 28 };
+            const gradeNames = ['S+','S','A+','A','B+','B','C','D'];
+            const grIdx = gradeNames.indexOf(gr);
+            const nextGradeName  = grIdx > 0 ? gradeNames[grIdx - 1] : null;
+            const nextGradeScore = nextGradeName ? gradeThresholds[nextGradeName] : null;
+            const remaining = nextGradeScore ? nextGradeScore - tot2 : 0;
+
+            // 改善アドバイス（actionsから上位3件を抜粋）
             let ia = '';
-            if (intent==='grade_improve'||gr!=='S') {
-                const tips = [];
-                if (lc4>0) tips.push('✅ 遅刻'+lc4+'件をゼロにする');
-                if (gav<80) tips.push('✅ 目標進捗を80%以上にする（現在'+gav+'%）');
-                if (mo>=20) tips.push('✅ 残業を月20h未満に抑える');
-                if (gls.length===0) tips.push('✅ 目標を登録する（最大+30点）');
-                if (tips.length>0) ia = '\n\n💡 **改善アドバイス：**\n'+tips.join('\n');
+            if (intent === 'grade_improve' || !['S+','S'].includes(gr)) {
+                const tips = (semi.actions || [])
+                    .slice(0, 3)
+                    .map(a => '✅ ' + a.title + (a.detail ? '（' + a.detail.substring(0, 40) + '）' : ''));
+                if (tips.length > 0) ia = '\n\n💡 **改善アドバイス：**\n' + tips.join('\n');
             }
+
             return {
                 text: '⭐ **AI 半期評価予測**\n\n' +
-                      '• 予測グレード：**GRADE '+gr+'** 🏅\n' +
-                      '• 推定スコア：**'+tot2+'点** / 100点\n\n' +
-                      '**内訳：**\n' +
-                      '• 出勤管理：'+as2+'/30点（遅刻'+lc4+'件・欠勤'+ac2+'日）\n' +
-                      '• 目標達成：'+gs2+'/30点（平均進捗'+gav+'%）\n' +
-                      '• 残業管理：'+os2+'/10点（月平均'+Math.round(mo)+'h）\n' +
-                      '• 休暇活用：'+ls2+'/10点\n' +
-                      '• 給与実績：16/20点\n\n' +
-                      (nt ? '📈 あと **'+(nt-tot2)+'点** でグレード **'+nl+'** 到達！' : '🏆 最高グレードSを達成中！') + ia,
+                      '• 予測グレード：**GRADE ' + gr + '** 🏅\n' +
+                      '• 推定スコア：**' + tot2 + '点** / 100点\n\n' +
+                      '**内訳（5カテゴリ）：**\n' +
+                      '• 出勤・時間管理：' + atScore + '/28点\n' +
+                      '• 目標管理：' + goScore + '/32点\n' +
+                      '• 業務品質：' + quScore + '/16点\n' +
+                      '• 残業管理：' + otScore + '/12点\n' +
+                      '• 休暇管理：' + lvScore + '/12点\n\n' +
+                      (nextGradeScore && remaining > 0
+                        ? '📈 あと **' + remaining + '点** でグレード **' + nextGradeName + '** 到達！'
+                        : gr === 'S+' ? '🏆 最高グレード S+ を達成中！' : 'グレードアップまで頑張りましょう！') + ia,
                 links: [{ label: 'ダッシュボードで詳細確認', url: '/dashboard' }],
                 quickReplies: ['改善方法を教えて', '目標の状況は？', '今月の勤怠は？']
             };

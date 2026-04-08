@@ -89,83 +89,120 @@ router.get('/admin', requireLogin, isAdmin, async (req, res) => {
         renderPage(req, res, '管理者メニュー', '管理者メニュー', html);
 });
 
-// 휴가 승인 처리
+// 従業員登録フォーム
 router.get('/admin/register-employee', requireLogin, isAdmin, (req, res) => {
     const html = `
-        ${req.query.success ? `
-        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#166534;">
-            <i class="fa-solid fa-circle-check"></i>
-            <span>従業員登録が完了しました。</span>
-        </div>` : ''}
-        ${req.query.error ? `
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#991b1b;">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <span>従業員登録中にエラーが発生しました。再度お試しください。</span>
-        </div>` : ''}
+    <style>
+        .reg-wrap { max-width: 680px; margin: 0 auto; padding: 0 0 60px; }
+        .reg-breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:#94a3b8; margin-bottom:24px; }
+        .reg-breadcrumb a { color:#64748b; text-decoration:none; transition:color .15s; }
+        .reg-breadcrumb a:hover { color:#3b82f6; }
+        .reg-breadcrumb .sep { color:#cbd5e1; }
+        .reg-header { display:flex; align-items:center; gap:16px; margin-bottom:32px; }
+        .reg-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#10b981 0%,#059669 100%); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; box-shadow:0 4px 14px rgba(16,185,129,.35); }
+        .reg-title-block h1 { margin:0 0 4px; font-size:22px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
+        .reg-title-block p { margin:0; font-size:13px; color:#64748b; }
+        .reg-alert { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; margin-bottom:18px; animation:fadeSlideIn .3s ease; }
+        .reg-alert-success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+        .reg-alert-error { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        .reg-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(15,23,42,.08); overflow:hidden; }
+        .reg-section { padding:28px 32px; }
+        .reg-section + .reg-section { border-top:1px solid #f1f5f9; }
+        .reg-section-label { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#94a3b8; margin-bottom:20px; }
+        .reg-section-label::after { content:''; flex:1; height:1px; background:#f1f5f9; }
+        .reg-field { margin-bottom:18px; }
+        .reg-field:last-child { margin-bottom:0; }
+        .reg-label { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:#475569; margin-bottom:7px; }
+        .reg-required { display:inline-block; background:#fef2f2; color:#ef4444; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; }
+        .reg-input { width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:14px; color:#0f172a; background:#fafbfc; outline:none; transition:border-color .18s,box-shadow .18s,background .18s; box-sizing:border-box; }
+        .reg-input::placeholder { color:#c0c8d4; }
+        .reg-input:hover { border-color:#c7d2e0; background:#fff; }
+        .reg-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+        .reg-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .reg-footer { padding:20px 32px; background:#f8fafc; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .reg-note { font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:5px; }
+        .reg-btn-group { display:flex; gap:10px; }
+        .reg-btn-cancel { display:inline-flex; align-items:center; gap:6px; padding:10px 20px; background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-weight:600; text-decoration:none; transition:border-color .15s,color .15s,background .15s; }
+        .reg-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; background:#f8fafc; }
+        .reg-btn-submit { display:inline-flex; align-items:center; gap:8px; padding:10px 26px; background:linear-gradient(135deg,#10b981 0%,#059669 100%); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 10px rgba(16,185,129,.35); transition:opacity .15s,box-shadow .15s,transform .1s; }
+        .reg-btn-submit:hover { opacity:.92; box-shadow:0 4px 16px rgba(16,185,129,.45); transform:translateY(-1px); }
+        .reg-btn-submit:active { transform:translateY(0); }
+        @media(max-width:540px) { .reg-section{padding:22px 18px} .reg-footer{flex-direction:column;align-items:stretch;padding:18px} .reg-btn-group{flex-direction:column-reverse} .reg-grid-2{grid-template-columns:1fr} .reg-btn-cancel,.reg-btn-submit{justify-content:center} }
+    </style>
 
-        <div style="max-width:600px;">
-            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:28px 32px;">
-                <form action="/admin/register-employee" method="POST">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div style="grid-column:1/3;">
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">ユーザー名 <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="username" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div style="grid-column:1/3;">
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">パスワード <span style="color:#ef4444;">*</span></label>
-                            <input type="password" name="password" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div>
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">従業員ID <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="employeeId" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div>
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">氏名 <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="name" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div>
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">部署 <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="department" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div>
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">職位 <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="position" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                        <div style="grid-column:1/3;">
-                            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:5px;">入社日 <span style="color:#ef4444;">*</span></label>
-                            <input type="date" name="joinDate" required
-                                style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none;transition:border .15s;"
-                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-                        </div>
-                    </div>
+    <div class="reg-wrap">
+        <nav class="reg-breadcrumb">
+            <a href="/admin"><i class="fa fa-shield-halved"></i> 管理者メニュー</a>
+            <span class="sep">›</span>
+            <span>従業員登録</span>
+        </nav>
 
-                    <div style="margin-top:24px;display:flex;gap:10px;">
-                        <button type="submit"
-                            style="background:#3b82f6;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;"
-                            onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
-                            <i class="fa-solid fa-user-plus" style="margin-right:6px;"></i>登録する
-                        </button>
-                        <a href="/admin"
-                            style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:background .15s;"
-                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                            <i class="fa-solid fa-arrow-left"></i>管理者メニューに戻る
-                        </a>
-                    </div>
-                </form>
+        <div class="reg-header">
+            <div class="reg-icon">👥</div>
+            <div class="reg-title-block">
+                <h1>従業員を登録</h1>
+                <p>新しい従業員のアカウントと基本情報を入力してください</p>
             </div>
         </div>
+
+        ${req.query.success ? `<div class="reg-alert reg-alert-success"><i class="fa fa-circle-check"></i> 従業員登録が完了しました。</div>` : ''}
+        ${req.query.error   ? `<div class="reg-alert reg-alert-error"><i class="fa fa-triangle-exclamation"></i> 登録中にエラーが発生しました。再度お試しください。</div>` : ''}
+
+        <form action="/admin/register-employee" method="POST">
+            <div class="reg-card">
+
+                <div class="reg-section">
+                    <div class="reg-section-label"><i class="fa fa-lock" style="color:#3b82f6"></i>アカウント情報</div>
+                    <div class="reg-grid-2">
+                        <div class="reg-field">
+                            <div class="reg-label">ユーザー名 <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="text" name="username" required placeholder="例：yamada_taro">
+                        </div>
+                        <div class="reg-field">
+                            <div class="reg-label">パスワード <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="password" name="password" required placeholder="6文字以上推奨">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="reg-section">
+                    <div class="reg-section-label"><i class="fa fa-id-card" style="color:#3b82f6"></i>従業員情報</div>
+                    <div class="reg-grid-2">
+                        <div class="reg-field">
+                            <div class="reg-label">従業員ID <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="text" name="employeeId" required placeholder="例：EMP001">
+                        </div>
+                        <div class="reg-field">
+                            <div class="reg-label">氏名 <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="text" name="name" required placeholder="例：山田 太郎">
+                        </div>
+                        <div class="reg-field">
+                            <div class="reg-label">部署 <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="text" name="department" required placeholder="例：開発部">
+                        </div>
+                        <div class="reg-field">
+                            <div class="reg-label">職位 <span class="reg-required">必須</span></div>
+                            <input class="reg-input" type="text" name="position" required placeholder="例：エンジニア">
+                        </div>
+                    </div>
+                    <div class="reg-field" style="margin-top:16px">
+                        <div class="reg-label">入社日 <span class="reg-required">必須</span></div>
+                        <input class="reg-input" type="date" name="joinDate" required style="max-width:260px">
+                    </div>
+                </div>
+
+                <div class="reg-footer">
+                    <div class="reg-note"><i class="fa fa-info-circle"></i> <span class="reg-required">必須</span> は必ず入力してください</div>
+                    <div class="reg-btn-group">
+                        <a href="/admin" class="reg-btn-cancel"><i class="fa fa-arrow-left"></i> 戻る</a>
+                        <button type="submit" class="reg-btn-submit"><i class="fa fa-user-plus"></i> 従業員を登録する</button>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
     `;
     renderPage(req, res, '従業員登録', '従業員登録', html);
 });
@@ -651,75 +688,148 @@ router.get('/admin/approval-requests', requireLogin, isAdmin, async (req, res) =
             .sort({ requestedAt: -1 });
 
         const rows = requests.map(r => `
-            <tr>
-                <td>${escapeHtml(r.employeeId || '')}</td>
-                <td>${escapeHtml(r.userId?.username || '-')}</td>
-                <td>${r.year}年${r.month}月</td>
-                <td>${new Date(r.requestedAt).toLocaleDateString('ja-JP')}</td>
-                <td>
+            <tr class="apr-row">
+                <td class="apr-td" style="font-family:monospace;font-size:12px;color:#64748b">${escapeHtml(r.employeeId || '')}</td>
+                <td class="apr-td" style="font-weight:700;color:#0f172a">${escapeHtml(r.userId?.username || '-')}</td>
+                <td class="apr-td">${r.year}年${r.month}月</td>
+                <td class="apr-td" style="color:#64748b">${new Date(r.requestedAt).toLocaleDateString('ja-JP')}</td>
+                <td class="apr-td">
                     ${r.status === 'pending'
-                        ? '<span class="badge badge-warning">承認待ち</span>'
-                        : '<span class="badge badge-danger">差し戻し</span>'}
+                        ? '<span class="apr-badge apr-badge-pending">⏳ 承認待ち</span>'
+                        : '<span class="apr-badge apr-badge-returned">↩ 差し戻し</span>'}
                     ${r.status === 'returned' && r.returnReason
-                        ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">📋 ${escapeHtml(r.returnReason)}</div>`
+                        ? `<div class="apr-return-reason"><i class="fa fa-comment-dots"></i> ${escapeHtml(r.returnReason)}</div>`
                         : ''}
                 </td>
-                <td style="display:flex;gap:6px;flex-wrap:wrap">
-                    ${r.status === 'pending' ? `
-                        <a href="/admin/approve-request/${r._id}" class="btn btn-success btn-sm">✅ 承認</a>
-                        <button onclick="openReturnModal('${r._id}')" class="btn btn-danger btn-sm">↩ 差し戻し</button>
-                    ` : ''}
-                    <a href="/admin/view-attendance/${r.userId?._id}/${r.year}/${r.month}" class="btn btn-ghost btn-sm">📋 確認</a>
+                <td class="apr-td">
+                    <div class="apr-actions">
+                        ${r.status === 'pending' ? `
+                            <a href="/admin/approve-request/${r._id}" class="apr-btn apr-btn-approve"><i class="fa fa-check"></i> 承認</a>
+                            <button onclick="openReturnModal('${r._id}')" class="apr-btn apr-btn-return"><i class="fa fa-rotate-left"></i> 差し戻し</button>
+                        ` : ''}
+                        <a href="/admin/view-attendance/${r.userId?._id}/${r.year}/${r.month}" class="apr-btn apr-btn-view"><i class="fa fa-eye"></i> 詳細</a>
+                    </div>
                 </td>
             </tr>
         `).join('');
 
         const html = `
         <style>
-            .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;}
-            .modal-backdrop.open{display:flex;}
-            .modal-box{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,.18);}
-            .modal-box h3{margin:0 0 16px;font-size:17px;color:#0b2540;}
+            .apr-wrap { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+            .apr-breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:#94a3b8; margin-bottom:24px; }
+            .apr-breadcrumb a { color:#64748b; text-decoration:none; transition:color .15s; }
+            .apr-breadcrumb a:hover { color:#3b82f6; }
+            .apr-breadcrumb .sep { color:#cbd5e1; }
+            .apr-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; flex-wrap:wrap; }
+            .apr-header-left { display:flex; align-items:center; gap:16px; }
+            .apr-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; box-shadow:0 4px 14px rgba(245,158,11,.35); }
+            .apr-title-block h1 { margin:0 0 4px; font-size:22px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
+            .apr-title-block p { margin:0; font-size:13px; color:#64748b; }
+            .apr-count-chip { background:#fff7ed; color:#c2410c; font-size:12px; font-weight:700; padding:4px 12px; border-radius:999px; border:1px solid #fed7aa; }
+            .apr-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(15,23,42,.07); overflow:hidden; }
+            .apr-table { width:100%; border-collapse:collapse; }
+            .apr-table thead th { padding:13px 20px; background:#0f172a; color:#cbd5e1; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; white-space:nowrap; text-align:left; }
+            .apr-row { border-bottom:1px solid #f1f5f9; transition:background .12s; }
+            .apr-row:last-child { border-bottom:none; }
+            .apr-row:hover { background:#f8faff; }
+            .apr-td { padding:14px 20px; vertical-align:middle; font-size:13px; }
+            .apr-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; }
+            .apr-badge-pending { background:#fffbeb; color:#92400e; border:1.5px solid #fcd34d; }
+            .apr-badge-returned { background:#fef2f2; color:#dc2626; border:1.5px solid #fca5a5; }
+            .apr-return-reason { font-size:11px; color:#9ca3af; margin-top:4px; }
+            .apr-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+            .apr-btn { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; text-decoration:none; transition:opacity .15s,transform .1s; white-space:nowrap; }
+            .apr-btn:hover { opacity:.85; transform:translateY(-1px); }
+            .apr-btn:active { transform:translateY(0); }
+            .apr-btn-approve { background:linear-gradient(135deg,#10b981,#059669); color:#fff; box-shadow:0 2px 8px rgba(16,185,129,.3); }
+            .apr-btn-return  { background:linear-gradient(135deg,#f87171,#ef4444); color:#fff; box-shadow:0 2px 8px rgba(239,68,68,.25); }
+            .apr-btn-view    { background:#f1f5f9; color:#475569; border:1.5px solid #e2e8f0; box-shadow:none; }
+            .apr-btn-view:hover { background:#e2e8f0; border-color:#94a3b8; color:#1e293b; opacity:1; }
+            .apr-empty { text-align:center; padding:60px 20px; color:#94a3b8; }
+            .apr-empty-icon { font-size:40px; margin-bottom:12px; }
+            .apr-empty-msg { font-size:14px; font-weight:600; }
+            .apr-footer { margin-top:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+            .apr-back-link { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none; transition:border-color .15s,color .15s; }
+            .apr-back-link:hover { border-color:#94a3b8; color:#1e293b; }
+            /* モーダル */
+            .apr-modal-backdrop { display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+            .apr-modal-backdrop.open { display:flex; }
+            .apr-modal-box { background:#fff; border-radius:18px; padding:32px; width:100%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,.2); animation:modalIn .2s ease; }
+            @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+            .apr-modal-title { font-size:17px; font-weight:800; color:#0f172a; margin:0 0 6px; display:flex; align-items:center; gap:8px; }
+            .apr-modal-sub { font-size:13px; color:#64748b; margin:0 0 20px; }
+            .apr-modal-label { font-size:12px; font-weight:600; color:#475569; margin-bottom:7px; display:block; }
+            .apr-modal-textarea { width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:14px; background:#fafbfc; outline:none; resize:vertical; min-height:100px; transition:border-color .18s,box-shadow .18s; box-sizing:border-box; }
+            .apr-modal-textarea:focus { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.1); background:#fff; }
+            .apr-modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+            .apr-modal-cancel { display:inline-flex; align-items:center; gap:6px; padding:10px 18px; background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; transition:border-color .15s; }
+            .apr-modal-cancel:hover { border-color:#94a3b8; }
+            .apr-modal-submit { display:inline-flex; align-items:center; gap:6px; padding:10px 22px; background:linear-gradient(135deg,#f87171,#ef4444); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 10px rgba(239,68,68,.3); transition:opacity .15s; }
+            .apr-modal-submit:hover { opacity:.88; }
+            @media(max-width:700px) { .apr-td{padding:12px 12px} .apr-table thead th{padding:11px 12px} }
         </style>
 
-        <h2 style="margin-bottom:4px">🔔 承認リクエスト一覧</h2>
-        <p style="color:#6b7280;margin-bottom:20px">未処理の勤怠承認リクエストを確認・処理します。</p>
+        <div class="apr-wrap">
+            <nav class="apr-breadcrumb">
+                <a href="/admin"><i class="fa fa-shield-halved"></i> 管理者メニュー</a>
+                <span class="sep">›</span>
+                <span>承認リクエスト一覧</span>
+            </nav>
 
-        <div class="card" style="padding:0;overflow:hidden">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>従業員ID</th>
-                        <th>ユーザー名</th>
-                        <th>年月</th>
-                        <th>申請日</th>
-                        <th>状態</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows || `<tr><td colspan="6" style="text-align:center;color:#6b7280;padding:32px">承認待ちのリクエストがありません</td></tr>`}
-                </tbody>
-            </table>
-        </div>
+            <div class="apr-header">
+                <div class="apr-header-left">
+                    <div class="apr-icon">🔔</div>
+                    <div class="apr-title-block">
+                        <h1>承認リクエスト一覧</h1>
+                        <p>未処理の勤怠承認リクエストを確認・処理します</p>
+                    </div>
+                </div>
+                <div class="apr-count-chip">
+                    <i class="fa fa-clock" style="margin-right:5px;opacity:.7"></i>${requests.length} 件未処理
+                </div>
+            </div>
 
-        <div style="margin-top:16px">
-            <a href="/admin" class="btn btn-ghost">← 管理者メニューに戻る</a>
+            <div class="apr-card">
+                ${requests.length === 0 ? `
+                    <div class="apr-empty">
+                        <div class="apr-empty-icon">✅</div>
+                        <div class="apr-empty-msg">承認待ちのリクエストはありません</div>
+                    </div>
+                ` : `
+                <table class="apr-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fa fa-id-badge" style="margin-right:6px;opacity:.7"></i>従業員ID</th>
+                            <th><i class="fa fa-user" style="margin-right:6px;opacity:.7"></i>ユーザー名</th>
+                            <th><i class="fa fa-calendar" style="margin-right:6px;opacity:.7"></i>対象年月</th>
+                            <th><i class="fa fa-clock" style="margin-right:6px;opacity:.7"></i>申請日</th>
+                            <th><i class="fa fa-circle-dot" style="margin-right:6px;opacity:.7"></i>状態</th>
+                            <th><i class="fa fa-sliders" style="margin-right:6px;opacity:.7"></i>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>`}
+            </div>
+
+            <div class="apr-footer">
+                <a href="/admin" class="apr-back-link"><i class="fa fa-arrow-left"></i> 管理者メニューに戻る</a>
+            </div>
         </div>
 
         <!-- 差し戻しモーダル -->
-        <div class="modal-backdrop" id="returnModal">
-            <div class="modal-box">
-                <h3>↩ 差し戻し理由</h3>
+        <div class="apr-modal-backdrop" id="returnModal">
+            <div class="apr-modal-box">
+                <div class="apr-modal-title"><i class="fa fa-rotate-left" style="color:#ef4444"></i> 差し戻し</div>
+                <div class="apr-modal-sub">差し戻し理由を入力してください。担当者に通知されます。</div>
                 <form id="returnForm">
                     <input type="hidden" id="returnRequestId">
-                    <div class="form-group">
-                        <label>差し戻し理由</label>
-                        <textarea id="returnReason" class="form-control" rows="4" placeholder="理由を入力してください" required></textarea>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-top:8px">
-                        <button type="submit" class="btn btn-danger">差し戻す</button>
-                        <button type="button" onclick="closeReturnModal()" class="btn btn-ghost">キャンセル</button>
+                    <label class="apr-modal-label">差し戻し理由 <span style="color:#ef4444">*</span></label>
+                    <textarea id="returnReason" class="apr-modal-textarea" placeholder="修正が必要な箇所を記載してください..." required></textarea>
+                    <div class="apr-modal-actions">
+                        <button type="button" onclick="closeReturnModal()" class="apr-modal-cancel"><i class="fa fa-times"></i> キャンセル</button>
+                        <button type="submit" class="apr-modal-submit"><i class="fa fa-rotate-left"></i> 差し戻す</button>
                     </div>
                 </form>
             </div>
@@ -1082,51 +1192,131 @@ router.get('/admin/view-attendance/:userId/:year/:month', requireLogin, isAdmin,
         }).sort({ date: 1 });
 
         const statusBadge = s => {
-            const map = { '正常':'#22c55e', '遅刻':'#f59e0b', '早退':'#f97316', '欠勤':'#ef4444' };
-            const c = map[s] || '#94a3b8';
-            return `<span style="background:${c}20;color:${c};border:1px solid ${c}40;padding:2px 8px;border-radius:4px;font-size:11.5px;font-weight:600;">${s||'正常'}</span>`;
+            const map = {
+                '正常': { bg:'#f0fdf4', color:'#15803d', border:'#bbf7d0' },
+                '遅刻': { bg:'#fffbeb', color:'#92400e', border:'#fcd34d' },
+                '早退': { bg:'#fff7ed', color:'#c2410c', border:'#fed7aa' },
+                '欠勤': { bg:'#fef2f2', color:'#dc2626', border:'#fecaca' },
+            };
+            const st = map[s] || { bg:'#f1f5f9', color:'#64748b', border:'#e2e8f0' };
+            return `<span style="background:${st.bg};color:${st.color};border:1.5px solid ${st.border};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">${s||'正常'}</span>`;
         };
+
+        const totalHours = attendances.reduce((s, a) => s + (a.workingHours || 0), 0);
+
         const html = `
-            <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 20px;display:flex;gap:24px;">
-                    <span style="font-size:13px;color:#64748b;">社員番号：<strong style="color:#1e293b;">${employee.employeeId}</strong></span>
-                    <span style="font-size:13px;color:#64748b;">部署：<strong style="color:#1e293b;">${employee.department||'-'}</strong></span>
-                    <span style="font-size:13px;color:#64748b;">対象月：<strong style="color:#1e293b;">${year}年${month}月</strong></span>
+        <style>
+            .vatt-wrap { max-width: 900px; margin: 0 auto; padding: 0 0 60px; }
+            .vatt-breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:#94a3b8; margin-bottom:24px; }
+            .vatt-breadcrumb a { color:#64748b; text-decoration:none; transition:color .15s; }
+            .vatt-breadcrumb a:hover { color:#3b82f6; }
+            .vatt-breadcrumb .sep { color:#cbd5e1; }
+            .vatt-header { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+            .vatt-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; box-shadow:0 4px 14px rgba(99,102,241,.35); }
+            .vatt-title-block h1 { margin:0 0 4px; font-size:22px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
+            .vatt-title-block p { margin:0; font-size:13px; color:#64748b; }
+            .vatt-info-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
+            .vatt-info-chip { background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:8px; font-size:13px; }
+            .vatt-info-chip .chip-label { color:#94a3b8; font-size:11px; font-weight:700; display:block; margin-bottom:1px; text-transform:uppercase; letter-spacing:.05em; }
+            .vatt-info-chip .chip-val { color:#0f172a; font-weight:700; font-size:14px; }
+            .vatt-stat-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+            .vatt-stat { background:#fff; border-radius:14px; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; gap:12px; }
+            .vatt-stat-ico { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+            .vatt-stat-num { font-size:22px; font-weight:800; color:#0f172a; line-height:1; }
+            .vatt-stat-lbl { font-size:11px; color:#94a3b8; margin-top:2px; }
+            .vatt-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(15,23,42,.07); overflow:hidden; }
+            .vatt-table { width:100%; border-collapse:collapse; }
+            .vatt-table thead th { padding:13px 18px; background:#0f172a; color:#cbd5e1; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; white-space:nowrap; text-align:left; }
+            .vatt-tr { border-bottom:1px solid #f1f5f9; transition:background .12s; }
+            .vatt-tr:last-child { border-bottom:none; }
+            .vatt-tr:hover { background:#f8faff; }
+            .vatt-td { padding:12px 18px; font-size:13px; vertical-align:middle; }
+            .vatt-back-link { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none; transition:border-color .15s,color .15s; margin-top:20px; }
+            .vatt-back-link:hover { border-color:#94a3b8; color:#1e293b; }
+            @media(max-width:600px) { .vatt-stat-cards{grid-template-columns:1fr 1fr} .vatt-td,.vatt-table thead th{padding:10px 12px} }
+        </style>
+
+        <div class="vatt-wrap">
+            <nav class="vatt-breadcrumb">
+                <a href="/admin"><i class="fa fa-shield-halved"></i> 管理者メニュー</a>
+                <span class="sep">›</span>
+                <a href="/admin/approval-requests">承認リクエスト一覧</a>
+                <span class="sep">›</span>
+                <span>勤怠詳細</span>
+            </nav>
+
+            <div class="vatt-header">
+                <div class="vatt-icon">📋</div>
+                <div class="vatt-title-block">
+                    <h1>${escapeHtml(employee.name)} さんの勤怠</h1>
+                    <p>${year}年${month}月の勤怠記録</p>
                 </div>
             </div>
-            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+
+            <div class="vatt-info-bar">
+                <div class="vatt-info-chip">
+                    <i class="fa fa-id-badge" style="color:#6366f1;font-size:16px"></i>
+                    <div><span class="chip-label">社員番号</span><span class="chip-val">${escapeHtml(employee.employeeId)}</span></div>
+                </div>
+                <div class="vatt-info-chip">
+                    <i class="fa fa-building" style="color:#6366f1;font-size:16px"></i>
+                    <div><span class="chip-label">部署</span><span class="chip-val">${escapeHtml(employee.department||'-')}</span></div>
+                </div>
+                <div class="vatt-info-chip">
+                    <i class="fa fa-calendar" style="color:#6366f1;font-size:16px"></i>
+                    <div><span class="chip-label">対象月</span><span class="chip-val">${year}年${month}月</span></div>
+                </div>
+            </div>
+
+            <div class="vatt-stat-cards">
+                <div class="vatt-stat">
+                    <div class="vatt-stat-ico" style="background:#eff6ff"><i class="fa fa-clock" style="color:#3b82f6"></i></div>
+                    <div><div class="vatt-stat-num">${totalHours.toFixed(1)}<span style="font-size:13px;font-weight:500;color:#64748b">h</span></div><div class="vatt-stat-lbl">総勤務時間</div></div>
+                </div>
+                <div class="vatt-stat">
+                    <div class="vatt-stat-ico" style="background:#fff7ed"><i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i></div>
+                    <div><div class="vatt-stat-num">${attendances.filter(a=>a.status==='遅刻').length}</div><div class="vatt-stat-lbl">遅刻</div></div>
+                </div>
+                <div class="vatt-stat">
+                    <div class="vatt-stat-ico" style="background:#fef2f2"><i class="fa fa-circle-xmark" style="color:#ef4444"></i></div>
+                    <div><div class="vatt-stat-num">${attendances.filter(a=>a.status==='欠勤').length}</div><div class="vatt-stat-lbl">欠勤</div></div>
+                </div>
+            </div>
+
+            <div class="vatt-card">
+                <table class="vatt-table">
                     <thead>
-                        <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                            <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;">日付</th>
-                            <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;">出勤</th>
-                            <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;">退勤</th>
-                            <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;">勤務時間</th>
-                            <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;">状態</th>
+                        <tr>
+                            <th>日付</th>
+                            <th>出勤</th>
+                            <th>退勤</th>
+                            <th>勤務時間</th>
+                            <th>状態</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${attendances.length === 0 ? `
-                            <tr><td colspan="5" style="padding:32px;text-align:center;color:#94a3b8;">該当月の勤怠記録がありません</td></tr>
+                            <tr><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px">
+                                <i class="fa fa-inbox" style="font-size:28px;margin-bottom:8px;display:block;opacity:.4"></i>
+                                該当月の勤怠記録がありません
+                            </td></tr>
                         ` : attendances.map((att, i) => `
-                            <tr style="border-bottom:1px solid #f1f5f9;${i%2===1?'background:#fafafa':''}">
-                                <td style="padding:10px 16px;font-weight:500;">${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD（ddd）')}</td>
-                                <td style="padding:10px 16px;">${att.checkIn ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#cbd5e1;">—</span>'}</td>
-                                <td style="padding:10px 16px;">${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#cbd5e1;">—</span>'}</td>
-                                <td style="padding:10px 16px;">${att.workingHours != null ? att.workingHours+'h' : '<span style="color:#cbd5e1;">—</span>'}</td>
-                                <td style="padding:10px 16px;">${statusBadge(att.status)}</td>
+                            <tr class="vatt-tr">
+                                <td class="vatt-td" style="font-weight:600">${moment(att.date).tz('Asia/Tokyo').format('YYYY/MM/DD（ddd）')}</td>
+                                <td class="vatt-td">${att.checkIn  ? moment(att.checkIn).tz('Asia/Tokyo').format('HH:mm')  : '<span style="color:#cbd5e1">—</span>'}</td>
+                                <td class="vatt-td">${att.checkOut ? moment(att.checkOut).tz('Asia/Tokyo').format('HH:mm') : '<span style="color:#cbd5e1">—</span>'}</td>
+                                <td class="vatt-td" style="font-weight:600">${att.workingHours != null ? att.workingHours+'h' : '<span style="color:#cbd5e1">—</span>'}</td>
+                                <td class="vatt-td">${statusBadge(att.status)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             </div>
-            <div style="margin-top:16px;">
-                <a href="/admin/approval-requests"
-                    style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:9px 18px;border-radius:6px;font-size:13.5px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:6px;"
-                    onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                    <i class="fa-solid fa-arrow-left"></i>承認リクエスト一覧に戻る
-                </a>
-            </div>
+
+            <a href="/admin/approval-requests" class="vatt-back-link">
+                <i class="fa fa-arrow-left"></i> 承認リクエスト一覧に戻る
+            </a>
+        </div>
         `;
         renderPage(req, res, `${employee.name}さんの勤怠記録`, `${employee.name}さんの${year}年${month}月勤怠記録`, html);
     } catch (error) {
@@ -1141,59 +1331,399 @@ router.get('/admin/view-attendance/:userId/:year/:month', requireLogin, isAdmin,
 router.get('/admin/users', requireLogin, isAdmin, async (req, res) => {
     try {
         const users = await User.find({}, 'username isAdmin createdAt').lean();
-        const rows = users.map(u => `
-            <tr>
-                <td>${escapeHtml(u.username)}</td>
-                <td>
-                    <span class="badge ${u.isAdmin ? 'badge-admin' : 'badge-user'}">
-                        ${u.isAdmin ? '👑 管理者' : '一般'}
+
+        const rows = users.map((u, idx) => `
+            <tr class="uadm-row" style="animation-delay:${idx * 40}ms">
+                <td class="uadm-td uadm-td-user">
+                    <div class="uadm-user-cell">
+                        <div class="uadm-avatar ${u.isAdmin ? 'uadm-avatar-admin' : 'uadm-avatar-user'}">
+                            ${u.isAdmin ? '<i class="fa fa-crown"></i>' : '<i class="fa fa-user"></i>'}
+                        </div>
+                        <span class="uadm-username">${escapeHtml(u.username)}</span>
+                    </div>
+                </td>
+                <td class="uadm-td uadm-td-role">
+                    <span class="uadm-badge ${u.isAdmin ? 'uadm-badge-admin' : 'uadm-badge-user'}">
+                        ${u.isAdmin ? '👑 管理者' : '一般ユーザー'}
                     </span>
                 </td>
-                <td>
-                    <form method="POST" action="/admin/users/toggle-admin" style="display:inline">
-                        <input type="hidden" name="userId" value="${u._id}">
-                        <input type="hidden" name="isAdmin" value="${u.isAdmin ? '0' : '1'}">
-                        <button type="submit" class="btn btn-sm ${u.isAdmin ? 'btn-danger' : 'btn-success'}">
-                            ${u.isAdmin ? '管理者権限を剥奪' : '管理者に昇格'}
-                        </button>
-                    </form>
-                    <form method="POST" action="/admin/users/reset-password" style="display:inline;margin-left:8px" onsubmit="return confirm('パスワードをリセットしますか？')">
-                        <input type="hidden" name="userId" value="${u._id}">
-                        <input type="text" name="newPassword" placeholder="新しいパスワード" required minlength="4" style="width:140px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
-                        <button type="submit" class="btn btn-sm btn-warning">リセット</button>
-                    </form>
+                <td class="uadm-td uadm-td-actions">
+                    <div class="uadm-actions">
+                        <form method="POST" action="/admin/users/toggle-admin" class="uadm-form">
+                            <input type="hidden" name="userId" value="${u._id}">
+                            <input type="hidden" name="isAdmin" value="${u.isAdmin ? '0' : '1'}">
+                            <button type="submit" class="uadm-btn ${u.isAdmin ? 'uadm-btn-revoke' : 'uadm-btn-promote'}">
+                                <i class="fa ${u.isAdmin ? 'fa-user-minus' : 'fa-user-shield'}"></i>
+                                ${u.isAdmin ? '権限を剥奪' : '管理者に昇格'}
+                            </button>
+                        </form>
+                        <form method="POST" action="/admin/users/reset-password" class="uadm-form uadm-pw-form"
+                              onsubmit="return confirm('${escapeHtml(u.username)} のパスワードをリセットしますか？')">
+                            <input type="hidden" name="userId" value="${u._id}">
+                            <div class="uadm-pw-row">
+                                <input type="text" name="newPassword" placeholder="新しいパスワード"
+                                       required minlength="4" class="uadm-pw-input"
+                                       autocomplete="new-password">
+                                <button type="submit" class="uadm-btn uadm-btn-reset">
+                                    <i class="fa fa-key"></i> リセット
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </td>
             </tr>
         `).join('');
 
         const html = `
         <style>
-            .users-table{width:100%;border-collapse:collapse;margin-top:16px}
-            .users-table th,.users-table td{padding:12px 14px;border-bottom:1px solid #e9ecef;text-align:left;font-size:14px}
-            .users-table th{background:#f8f9fa;font-weight:700;color:#374151}
-            .users-table tr:hover td{background:#f5f7fb}
-            .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
-            .badge-admin{background:#fef3c7;color:#92400e}
-            .badge-user{background:#e0f2fe;color:#0369a1}
-            .btn-sm{padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600}
-            .btn-success{background:#d1fae5;color:#065f46}
-            .btn-danger{background:#fee2e2;color:#991b1b}
-            .btn-warning{background:#fef9c3;color:#854d0e}
-            .btn-sm:hover{opacity:0.8}
-            .alert-success{background:#d1fae5;color:#065f46;padding:10px 16px;border-radius:8px;margin-bottom:16px}
-            .alert-error{background:#fee2e2;color:#991b1b;padding:10px 16px;border-radius:8px;margin-bottom:16px}
+            /* ── ページ枠 ── */
+            .uadm-wrap {
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 0 0 60px;
+            }
+
+            /* ── パンくず ── */
+            .uadm-breadcrumb {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #94a3b8;
+                margin-bottom: 24px;
+            }
+            .uadm-breadcrumb a {
+                color: #64748b;
+                text-decoration: none;
+                transition: color .15s;
+            }
+            .uadm-breadcrumb a:hover { color: #3b82f6; }
+            .uadm-breadcrumb .sep { color: #cbd5e1; }
+
+            /* ── ヘッダー ── */
+            .uadm-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 28px;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .uadm-header-left {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+            }
+            .uadm-icon {
+                width: 52px;
+                height: 52px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+                flex-shrink: 0;
+                box-shadow: 0 4px 14px rgba(245,158,11,.35);
+            }
+            .uadm-title-block h1 {
+                margin: 0 0 4px;
+                font-size: 22px;
+                font-weight: 800;
+                color: #0f172a;
+                letter-spacing: -.3px;
+            }
+            .uadm-title-block p {
+                margin: 0;
+                font-size: 13px;
+                color: #64748b;
+            }
+            .uadm-count-chip {
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 4px 12px;
+                border-radius: 999px;
+                border: 1px solid #e2e8f0;
+            }
+
+            /* ── アラート ── */
+            .uadm-alert {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 600;
+                margin-bottom: 18px;
+                animation: fadeSlideIn .3s ease;
+            }
+            .uadm-alert-success {
+                background: #f0fdf4;
+                color: #15803d;
+                border: 1px solid #bbf7d0;
+            }
+            .uadm-alert-error {
+                background: #fef2f2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+            @keyframes fadeSlideIn {
+                from { opacity:0; transform:translateY(-8px); }
+                to   { opacity:1; transform:translateY(0); }
+            }
+
+            /* ── テーブルカード ── */
+            .uadm-card {
+                background: #fff;
+                border-radius: 18px;
+                box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 32px rgba(15,23,42,.07);
+                overflow: hidden;
+            }
+            .uadm-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .uadm-table thead th {
+                padding: 13px 20px;
+                background: #0f172a;
+                color: #cbd5e1;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: .07em;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+            .uadm-table thead th:first-child { border-radius: 0; }
+            .uadm-row {
+                border-bottom: 1px solid #f1f5f9;
+                transition: background .12s;
+                animation: rowIn .3s ease both;
+            }
+            @keyframes rowIn {
+                from { opacity:0; transform:translateX(-6px); }
+                to   { opacity:1; transform:translateX(0); }
+            }
+            .uadm-row:last-child { border-bottom: none; }
+            .uadm-row:hover { background: #f8faff; }
+            .uadm-td {
+                padding: 14px 20px;
+                vertical-align: middle;
+                font-size: 14px;
+            }
+
+            /* ── ユーザーセル ── */
+            .uadm-user-cell {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .uadm-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+            }
+            .uadm-avatar-admin {
+                background: linear-gradient(135deg, #fef3c7, #fde68a);
+                color: #92400e;
+                border: 1.5px solid #fcd34d;
+            }
+            .uadm-avatar-user {
+                background: #f1f5f9;
+                color: #64748b;
+                border: 1.5px solid #e2e8f0;
+            }
+            .uadm-username {
+                font-weight: 700;
+                color: #0f172a;
+                font-size: 14px;
+            }
+
+            /* ── バッジ ── */
+            .uadm-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 4px 12px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 700;
+            }
+            .uadm-badge-admin {
+                background: #fffbeb;
+                color: #92400e;
+                border: 1.5px solid #fcd34d;
+            }
+            .uadm-badge-user {
+                background: #f0f9ff;
+                color: #0369a1;
+                border: 1.5px solid #bae6fd;
+            }
+
+            /* ── アクション列 ── */
+            .uadm-td-actions { width: 1%; white-space: nowrap; }
+            .uadm-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .uadm-form { margin: 0; }
+            .uadm-pw-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .uadm-pw-input {
+                width: 150px;
+                padding: 7px 11px;
+                border: 1.5px solid #e2e8f0;
+                border-radius: 8px;
+                font-size: 13px;
+                color: #0f172a;
+                background: #fafbfc;
+                outline: none;
+                transition: border-color .18s, box-shadow .18s;
+            }
+            .uadm-pw-input:focus {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+                background: #fff;
+            }
+            .uadm-pw-input::placeholder { color: #c0c8d4; }
+
+            /* ── ボタン ── */
+            .uadm-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 7px 14px;
+                border: none;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: opacity .15s, transform .1s, box-shadow .15s;
+                white-space: nowrap;
+            }
+            .uadm-btn:hover { opacity: .85; transform: translateY(-1px); }
+            .uadm-btn:active { transform: translateY(0); }
+            .uadm-btn-promote {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: #fff;
+                box-shadow: 0 2px 8px rgba(16,185,129,.3);
+            }
+            .uadm-btn-revoke {
+                background: linear-gradient(135deg, #f87171, #ef4444);
+                color: #fff;
+                box-shadow: 0 2px 8px rgba(239,68,68,.25);
+            }
+            .uadm-btn-reset {
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                color: #fff;
+                box-shadow: 0 2px 8px rgba(245,158,11,.3);
+            }
+
+            /* ── フッター ── */
+            .uadm-footer {
+                margin-top: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .uadm-back-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                padding: 9px 18px;
+                background: #fff;
+                color: #475569;
+                border: 1.5px solid #e2e8f0;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 600;
+                text-decoration: none;
+                transition: border-color .15s, color .15s;
+            }
+            .uadm-back-link:hover {
+                border-color: #94a3b8;
+                color: #1e293b;
+            }
+            .uadm-footer-note {
+                font-size: 12px;
+                color: #94a3b8;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            @media (max-width: 700px) {
+                .uadm-td { padding: 12px 12px; }
+                .uadm-actions { flex-direction: column; align-items: flex-start; }
+                .uadm-pw-input { width: 120px; }
+                .uadm-table thead th { padding: 11px 12px; }
+            }
         </style>
-        <div style="max-width:900px;margin:0 auto">
-            <h2 style="margin-bottom:4px">🔑 ユーザー権限管理</h2>
-            <p style="color:#6b7280;margin-bottom:16px">管理者権限の付与・剥奪およびパスワードリセットを行います。</p>
-            ${req.query.success === 'admin' ? '<div class="alert-success">✅ 管理者権限を更新しました。</div>' : ''}
-            ${req.query.success === 'password' ? '<div class="alert-success">✅ パスワードをリセットしました。</div>' : ''}
-            ${req.query.error ? '<div class="alert-error">⚠️ エラーが発生しました。</div>' : ''}
-            <table class="users-table">
-                <thead><tr><th>ユーザー名</th><th>権限</th><th>操作</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-            <div style="margin-top:20px"><a href="/admin" class="btn btn--ghost">← 管理者メニューに戻る</a></div>
+
+        <div class="uadm-wrap">
+            <!-- パンくず -->
+            <nav class="uadm-breadcrumb">
+                <a href="/admin"><i class="fa fa-shield-halved"></i> 管理者メニュー</a>
+                <span class="sep">›</span>
+                <span>ユーザー権限管理</span>
+            </nav>
+
+            <!-- ヘッダー -->
+            <div class="uadm-header">
+                <div class="uadm-header-left">
+                    <div class="uadm-icon">🔑</div>
+                    <div class="uadm-title-block">
+                        <h1>ユーザー権限管理</h1>
+                        <p>管理者権限の付与・剥奪およびパスワードのリセットを行います</p>
+                    </div>
+                </div>
+                <div class="uadm-count-chip">
+                    <i class="fa fa-users" style="margin-right:5px;opacity:.7"></i>${users.length} アカウント
+                </div>
+            </div>
+
+            <!-- アラート -->
+            ${req.query.success === 'admin'    ? '<div class="uadm-alert uadm-alert-success"><i class="fa fa-circle-check"></i> 管理者権限を更新しました。</div>' : ''}
+            ${req.query.success === 'password' ? '<div class="uadm-alert uadm-alert-success"><i class="fa fa-circle-check"></i> パスワードをリセットしました。</div>' : ''}
+            ${req.query.error                  ? '<div class="uadm-alert uadm-alert-error"><i class="fa fa-triangle-exclamation"></i> エラーが発生しました。もう一度お試しください。</div>' : ''}
+
+            <!-- テーブルカード -->
+            <div class="uadm-card">
+                <table class="uadm-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fa fa-user" style="margin-right:6px;opacity:.7"></i>ユーザー名</th>
+                            <th><i class="fa fa-shield-halved" style="margin-right:6px;opacity:.7"></i>権限</th>
+                            <th><i class="fa fa-sliders" style="margin-right:6px;opacity:.7"></i>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+
+            <!-- フッター -->
+            <div class="uadm-footer">
+                <a href="/admin" class="uadm-back-link">
+                    <i class="fa fa-arrow-left"></i> 管理者メニューに戻る
+                </a>
+                <div class="uadm-footer-note">
+                    <i class="fa fa-lock"></i> 操作ログは管理者のみ閲覧できます
+                </div>
+            </div>
         </div>
         `;
         renderPage(req, res, 'ユーザー権限管理', 'ユーザー権限管理', html);

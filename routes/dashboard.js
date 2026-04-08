@@ -547,15 +547,18 @@ router.get('/dashboard', requireLogin, async (req, res) => {
                     <!-- 総合スコアバー -->
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                         <span style="font-size:12px;color:var(--c-muted);font-weight:600">総合スコア</span>
-                        <span style="font-size:14px;font-weight:800;color:${semi.score>=88?'#7c3aed':semi.score>=75?'#16a34a':semi.score>=60?'#2563eb':semi.score>=45?'#d97706':'#dc2626'}">${semi.score} <span style="font-size:11px;font-weight:500;color:var(--c-muted)">/ 100点</span></span>
+                        <span style="font-size:14px;font-weight:800;color:${semi.score>=96?'#9333ea':semi.score>=88?'#7c3aed':semi.score>=78?'#16a34a':semi.score>=67?'#2563eb':semi.score>=55?'#0891b2':semi.score>=43?'#d97706':semi.score>=28?'#ea580c':'#dc2626'}">${semi.score} <span style="font-size:11px;font-weight:500;color:var(--c-muted)">/ 100点</span></span>
                     </div>
                     <div class="semi-score-bar"><div class="semi-score-fill" style="width:${Math.min(100, semi.score)}%"></div></div>
-                    <div style="display:grid;grid-template-columns:repeat(5,1fr);text-align:center;font-size:10px;color:var(--c-muted);margin-top:3px;margin-bottom:18px">
-                        <span>D<br><span style="color:#9ca3af">〜44</span></span>
-                        <span>C<br><span style="color:#9ca3af">45〜</span></span>
-                        <span>B<br><span style="color:#9ca3af">60〜</span></span>
-                        <span>A<br><span style="color:#9ca3af">75〜</span></span>
-                        <span>S<br><span style="color:#9ca3af">88〜</span></span>
+                    <div style="display:grid;grid-template-columns:repeat(8,1fr);text-align:center;font-size:9.5px;color:var(--c-muted);margin-top:3px;margin-bottom:18px">
+                        <span style="color:#dc2626;font-weight:700">D<br><span style="color:#9ca3af;font-weight:400">〜27</span></span>
+                        <span style="color:#ea580c;font-weight:700">C<br><span style="color:#9ca3af;font-weight:400">28〜</span></span>
+                        <span style="color:#d97706;font-weight:700">B<br><span style="color:#9ca3af;font-weight:400">43〜</span></span>
+                        <span style="color:#0891b2;font-weight:700">B+<br><span style="color:#9ca3af;font-weight:400">55〜</span></span>
+                        <span style="color:#2563eb;font-weight:700">A<br><span style="color:#9ca3af;font-weight:400">67〜</span></span>
+                        <span style="color:#16a34a;font-weight:700">A+<br><span style="color:#9ca3af;font-weight:400">78〜</span></span>
+                        <span style="color:#7c3aed;font-weight:700">S<br><span style="color:#9ca3af;font-weight:400">88〜</span></span>
+                        <span style="color:#9333ea;font-weight:700">S+<br><span style="color:#9ca3af;font-weight:400">96〜</span></span>
                     </div>
 
                     <!-- ── 5カテゴリ 詳細ブレークダウン ── -->
@@ -566,45 +569,46 @@ router.get('/dashboard', requireLogin, async (req, res) => {
                         const raw = semi.raw || {};
                         const categories = [
                             {
-                                key: 'attendance', label: '出勤・勤怠', icon: 'fa-calendar-check', color: '#2563eb', bg: '#eff6ff',
-                                score: semi.breakdown.attendanceScore || 0, max: 30,
+                                key: 'attendance', label: '出勤・時間管理', icon: 'fa-calendar-check', color: '#2563eb', bg: '#eff6ff',
+                                score: semi.breakdown.attendanceScore || 0, max: 28,
                                 items: [
-                                    { label: '時間厳守', val: (sub.attendance||{}).punctuality||0, max: 10, tip: `遅刻${raw.lateCount||0}件・早退${raw.earlyCount||0}件` },
+                                    { label: '時間厳守', val: (sub.attendance||{}).punctuality||0, max: 12, tip: `遅刻${raw.lateCount||0}件・早退${raw.earlyCount||0}件` },
                                     { label: '出勤安定性', val: (sub.attendance||{}).stability||0, max: 10, tip: `欠勤${raw.absentCount||0}日` },
-                                    { label: '月次一貫性', val: (sub.attendance||{}).consistency||0, max: 10, tip: '月ごとの出勤日数のばらつき' }
+                                    { label: '月次一貫性', val: (sub.attendance||{}).consistency||0, max: 6, tip: `評価期間${raw.monthCount||0}ヶ月` }
                                 ]
                             },
                             {
                                 key: 'goal', label: '目標管理', icon: 'fa-bullseye', color: '#16a34a', bg: '#f0fdf4',
-                                score: semi.breakdown.goalScore || 0, max: 30,
+                                score: semi.breakdown.goalScore || 0, max: 32,
                                 items: [
-                                    { label: '進捗率', val: (sub.goal||{}).progress||0, max: 12, tip: `平均進捗${raw.goalAvg||0}%` },
-                                    { label: '完了率', val: (sub.goal||{}).completion||0, max: 12, tip: `${raw.goalsCompleted||0}/${raw.goalsTotal||0}件完了` },
-                                    { label: '計画性', val: (sub.goal||{}).planning||0, max: 6, tip: `期限超過${raw.goalsOverdue||0}件` }
+                                    { label: '進捗率', val: (sub.goal||{}).progress||0, max: 10, tip: `平均進捗${raw.goalAvg||0}%` },
+                                    { label: '完了率', val: (sub.goal||{}).completion||0, max: 10, tip: `${raw.goalsCompleted||0}/${raw.goalsApproved||0}件完了` },
+                                    { label: '計画性', val: (sub.goal||{}).planning||0, max: 6, tip: `期限超過${raw.goalsOverdue||0}件` },
+                                    { label: '難易度ボーナス', val: (sub.goal||{}).difficulty||0, max: 6, tip: `高レベル目標${raw.goalsHighLevel||0}件` }
                                 ]
                             },
                             {
-                                key: 'leave', label: '休暇管理', icon: 'fa-umbrella-beach', color: '#d97706', bg: '#fffbeb',
-                                score: semi.breakdown.leaveScore || 0, max: 10,
+                                key: 'quality', label: '業務品質', icon: 'fa-file-lines', color: '#0891b2', bg: '#ecfeff',
+                                score: semi.breakdown.qualityScore || semi.breakdown.payrollScore || 0, max: 16,
                                 items: [
-                                    { label: '承認管理', val: (sub.leave||{}).management||0, max: 5, tip: `承認待ち${raw.leavePending||0}件` },
-                                    { label: '計画的取得', val: (sub.leave||{}).planning||0, max: 5, tip: `承認済${raw.leaveApproved||0}件` }
+                                    { label: '打刻精度', val: (sub.quality||sub.payroll||{}).punchAccuracy||(sub.quality||sub.payroll||{}).accuracy||0, max: 8, tip: `正常打刻${raw.normalCount||0}日` },
+                                    { label: '日報提出率', val: (sub.quality||sub.payroll||{}).dailyReport||(sub.quality||sub.payroll||{}).timeliness||0, max: 8, tip: `提出${raw.reportCount||0}件（${raw.reportRate||0}%）` }
                                 ]
                             },
                             {
                                 key: 'overtime', label: '残業管理', icon: 'fa-moon', color: '#7c3aed', bg: '#faf5ff',
-                                score: semi.breakdown.overtimeScore || 0, max: 10,
+                                score: semi.breakdown.overtimeScore || 0, max: 12,
                                 items: [
-                                    { label: '残業時間制御', val: (sub.overtime||{}).control||0, max: 5, tip: `月平均${raw.monthlyOT||0}h` },
+                                    { label: '月間残業制御', val: (sub.overtime||{}).control||0, max: 7, tip: `月平均${raw.monthlyOT||0}h` },
                                     { label: 'ワークバランス', val: (sub.overtime||{}).balance||0, max: 5, tip: '日次残業のばらつき' }
                                 ]
                             },
                             {
-                                key: 'payroll', label: '給与・データ', icon: 'fa-yen-sign', color: '#0891b2', bg: '#ecfeff',
-                                score: semi.breakdown.payrollScore || 0, max: 20,
+                                key: 'leave', label: '休暇管理', icon: 'fa-umbrella-beach', color: '#d97706', bg: '#fffbeb',
+                                score: semi.breakdown.leaveScore || 0, max: 12,
                                 items: [
-                                    { label: '打刻正確性', val: (sub.payroll||{}).accuracy||0, max: 10, tip: `正常打刻${raw.normalCount||0}日` },
-                                    { label: '入力適時性', val: (sub.payroll||{}).timeliness||0, max: 10, tip: 'データ入力の遅れなし' }
+                                    { label: '計画的申請', val: (sub.leave||{}).management||(sub.leave||{}).planning||0, max: 7, tip: `承認待ち${raw.leavePending||0}件` },
+                                    { label: '承認率', val: (sub.leave||{}).approvalRate||(sub.leave||{}).planning||0, max: 5, tip: `承認済${raw.leaveApproved||0}件` }
                                 ]
                             }
                         ];

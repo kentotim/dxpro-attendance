@@ -112,173 +112,422 @@ router.get('/hr', requireLogin, async (req, res) => {
 
         renderPage(req, res, '人事管理', `${escapeHtml(employee.name)} さん、こんにちは`, `
             <style>
-                .hr-page{max-width:1140px;margin:0 auto}
+                /* ===== HR Portal — Enterprise Design ===== */
+                *{box-sizing:border-box}
+                .hrp{max-width:1200px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Sans',sans-serif}
 
-                .hr-welcome{background:linear-gradient(120deg,#0b2540 0%,#0b5fff 100%);border-radius:16px;padding:28px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:16px}
-                .hr-welcome-title{font-size:22px;font-weight:800;margin:0 0 4px}
-                .hr-welcome-sub{font-size:13px;opacity:.8;margin:0}
-                .hr-welcome-meta{display:flex;gap:0;flex-wrap:wrap;align-items:stretch}
-                .hr-welcome-item{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;border-left:1px solid rgba(255,255,255,.2)}
-                .hr-welcome-item:first-child{border-left:none}
-                .hr-welcome-item-val{font-size:22px;font-weight:800;line-height:1.2}
-                .hr-welcome-item-lbl{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;white-space:nowrap}
+                /* ── ヒーローバナー ── */
+                .hrp-hero{
+                    background:linear-gradient(135deg,#0f2244 0%,#1a3a6e 45%,#0b5fff 100%);
+                    border-radius:20px;padding:32px 36px;color:#fff;
+                    display:flex;justify-content:space-between;align-items:center;
+                    margin-bottom:28px;flex-wrap:wrap;gap:20px;
+                    position:relative;overflow:hidden
+                }
+                .hrp-hero::before{
+                    content:'';position:absolute;right:-60px;top:-60px;
+                    width:280px;height:280px;border-radius:50%;
+                    background:rgba(255,255,255,.05);pointer-events:none
+                }
+                .hrp-hero::after{
+                    content:'';position:absolute;right:80px;bottom:-80px;
+                    width:200px;height:200px;border-radius:50%;
+                    background:rgba(255,255,255,.04);pointer-events:none
+                }
+                .hrp-hero-left{flex:1;min-width:0;position:relative;z-index:1}
+                .hrp-hero-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin-bottom:6px}
+                .hrp-hero-name{font-size:26px;font-weight:900;margin:0 0 5px;letter-spacing:-.3px}
+                .hrp-hero-meta{font-size:13px;opacity:.7;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+                .hrp-hero-meta-sep{opacity:.4}
+                .hrp-hero-stats{display:flex;gap:0;flex-wrap:wrap;position:relative;z-index:1}
+                .hrp-hero-stat{
+                    text-align:center;padding:8px 24px;
+                    border-left:1px solid rgba(255,255,255,.18)
+                }
+                .hrp-hero-stat:first-child{border-left:none}
+                .hrp-hero-stat-val{font-size:24px;font-weight:900;line-height:1.1;letter-spacing:-.5px}
+                .hrp-hero-stat-lbl{font-size:10px;font-weight:600;opacity:.6;text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
 
-                .hr-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-                .hr-kpi{background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 4px 16px rgba(11,36,48,.06);display:flex;align-items:center;gap:14px}
-                .hr-kpi-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-                .hr-kpi-val{font-size:22px;font-weight:800;color:#0b2540;line-height:1}
-                .hr-kpi-lbl{font-size:12px;color:#9ca3af;margin-top:3px}
+                /* ── KPIカード ── */
+                .hrp-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+                .hrp-kpi{
+                    background:#fff;border-radius:16px;padding:20px 22px;
+                    box-shadow:0 1px 3px rgba(0,0,0,.06),0 4px 20px rgba(11,36,80,.06);
+                    display:flex;align-items:flex-start;gap:16px;
+                    border:1px solid #f0f4ff;
+                    transition:box-shadow .2s,transform .2s
+                }
+                .hrp-kpi:hover{box-shadow:0 4px 24px rgba(11,95,255,.12);transform:translateY(-2px)}
+                .hrp-kpi-icon{
+                    width:50px;height:50px;border-radius:14px;
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:22px;flex-shrink:0
+                }
+                .hrp-kpi-body{min-width:0}
+                .hrp-kpi-val{font-size:24px;font-weight:900;color:#0f2244;line-height:1.1;letter-spacing:-.5px}
+                .hrp-kpi-lbl{font-size:12px;color:#8896a8;margin-top:4px;font-weight:500}
+                .hrp-kpi-trend{font-size:11px;font-weight:700;margin-top:6px;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px}
 
-                .hr-grid{display:grid;grid-template-columns:1fr 300px;gap:20px}
-                .hr-card{background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(11,36,48,.06);overflow:hidden;margin-bottom:20px}
-                .hr-card-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #f1f5f9}
-                .hr-card-title{font-size:15px;font-weight:800;color:#0b2540;margin:0}
+                /* ── セクション区切り ── */
+                .hrp-section-label{
+                    font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                    color:#8896a8;margin:0 0 14px;display:flex;align-items:center;gap:8px
+                }
+                .hrp-section-label::after{content:'';flex:1;height:1px;background:#eef2f8}
 
-                .hr-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-                .hr-table th{background:#f8fafc;color:#6b7280;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;border-bottom:2px solid #e5e7eb;text-align:left;white-space:nowrap}
-                .hr-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#1f2937;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-                .hr-table tr:last-child td{border-bottom:none}
-                .hr-table tbody tr:hover td{background:#f0f5ff}
-                .hr-table col.col-avatar{width:46px}
-                .hr-table col.col-name{width:150px}
-                .hr-table col.col-id{width:140px}
-                .hr-table col.col-dept{width:150px}
-                .hr-table col.col-pos{width:130px}
-                .hr-table col.col-date{width:100px}
-                .hr-table col.col-leave{width:70px}
-                .hr-table col.col-action{width:120px}
-                .hr-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0b5fff,#7c3aed);color:#fff;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-                .hr-table-search{padding:12px 20px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center}
-                .hr-table-search input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:7px 12px;font-size:13px;outline:none}
-                .hr-table-search input:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.08)}
-                .hr-tbl-actions{display:flex;flex-wrap:nowrap;gap:5px;align-items:center}
-                .hr-tbl-btn{display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0}
-                .hr-tbl-btn-edit{background:#eff6ff;color:#0b5fff}
-                .hr-tbl-btn-edit:hover{background:#dbeafe}
-                .hr-tbl-btn-del{background:#fee2e2;color:#ef4444}
-                .hr-tbl-btn-del:hover{background:#fecaca}
+                /* ── メインレイアウト ── */
+                .hrp-layout{display:grid;grid-template-columns:1fr 240px;gap:22px}
 
-                .hr-side-card{background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(11,36,48,.06);margin-bottom:16px;overflow:hidden}
-                .hr-side-head{padding:14px 18px;border-bottom:1px solid #f1f5f9;font-size:14px;font-weight:800;color:#0b2540}
-                .hr-side-body{padding:10px 12px}
-                .hr-action-btn{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;text-decoration:none;color:#374151;font-size:13px;font-weight:600;transition:background .15s;margin-bottom:4px}
-                .hr-action-btn:hover{background:#f0f4ff;color:#0b5fff}
-                .hr-action-btn-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+                /* ── カード共通 ── */
+                .hrp-card{
+                    background:#fff;border-radius:16px;
+                    box-shadow:0 1px 3px rgba(0,0,0,.05),0 4px 20px rgba(11,36,80,.05);
+                    border:1px solid #f0f4ff;overflow:hidden;margin-bottom:20px
+                }
+                .hrp-card-head{
+                    display:flex;justify-content:space-between;align-items:center;
+                    padding:18px 22px;border-bottom:1px solid #f0f4ff
+                }
+                .hrp-card-title{font-size:14px;font-weight:800;color:#0f2244;margin:0;display:flex;align-items:center;gap:8px}
+                .hrp-card-title-icon{
+                    width:30px;height:30px;border-radius:8px;
+                    display:flex;align-items:center;justify-content:center;font-size:14px
+                }
+                .hrp-badge-count{
+                    background:#eff6ff;color:#0b5fff;font-size:11px;font-weight:800;
+                    padding:2px 8px;border-radius:20px;margin-left:6px
+                }
 
-                .hr-leave-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f8fafc;font-size:13px}
-                .hr-leave-item:last-child{border-bottom:none}
-                .hr-badge{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}
+                /* ── テーブル ── */
+                .hrp-table-wrap{overflow-x:auto;min-width:0}
+                .hrp-table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:auto}
+                .hrp-table thead tr{background:#f8fafc}
+                .hrp-table th{
+                    padding:10px 12px;color:#8896a8;font-size:10px;font-weight:700;
+                    text-transform:uppercase;letter-spacing:.06em;text-align:left;
+                    border-bottom:2px solid #eef2f8;white-space:nowrap
+                }
+                .hrp-table td{
+                    padding:10px 12px;border-bottom:1px solid #f5f7fb;
+                    color:#374151;vertical-align:middle;white-space:nowrap
+                }
+                .hrp-table tbody tr:last-child td{border-bottom:none}
+                .hrp-table tbody tr:hover td{background:#f8fbff}
+                .hrp-avatar{
+                    width:34px;height:34px;border-radius:50%;
+                    background:linear-gradient(135deg,#0b5fff,#6d28d9);
+                    color:#fff;font-size:13px;font-weight:800;
+                    display:inline-flex;align-items:center;justify-content:center;flex-shrink:0
+                }
+                .hrp-emp-name{font-weight:700;color:#0f2244;font-size:13px;white-space:nowrap}
+                .hrp-emp-id{font-size:11px;color:#a0aec0;margin-top:1px}
+                .hrp-dept-tag{
+                    display:inline-block;padding:2px 8px;border-radius:20px;
+                    font-size:11px;font-weight:600;
+                    background:#f0f4ff;color:#4f6ef7;white-space:nowrap
+                }
+                .hrp-pos-tag{
+                    display:inline-block;padding:2px 8px;border-radius:20px;
+                    font-size:11px;font-weight:600;
+                    background:#f0fdf4;color:#16a34a;white-space:nowrap
+                }
+                .hrp-leave-pill{
+                    display:inline-flex;align-items:center;gap:4px;
+                    font-size:12px;font-weight:700;color:#0b5fff;
+                    background:#eff6ff;padding:3px 10px;border-radius:20px
+                }
+                .hrp-action-row{display:flex;gap:5px;align-items:center;flex-wrap:nowrap}
+                .hrp-tbl-btn{
+                    display:inline-flex;align-items:center;gap:3px;
+                    padding:4px 10px;border-radius:6px;font-size:11.5px;font-weight:700;
+                    text-decoration:none;border:none;cursor:pointer;transition:opacity .15s;
+                    white-space:nowrap;flex-shrink:0
+                }
+                .hrp-tbl-btn:hover{opacity:.8}
+                .hrp-tbl-btn-edit{background:#eff6ff;color:#0b5fff}
+                .hrp-tbl-btn-del{background:#fff1f2;color:#ef4444}
 
-                .hr-myinfo{padding:18px}
-                .hr-myinfo-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f8fafc;font-size:13px}
-                .hr-myinfo-row:last-child{border-bottom:none}
-                .hr-myinfo-label{color:#9ca3af;font-weight:600}
-                .hr-myinfo-val{color:#1f2937;font-weight:700}
+                /* ── 検索バー ── */
+                .hrp-search{
+                    padding:14px 22px;border-bottom:1px solid #f0f4ff;
+                    display:flex;align-items:center;gap:10px;background:#fafbff
+                }
+                .hrp-search input{
+                    flex:1;border:1.5px solid #e8edf7;border-radius:9px;
+                    padding:8px 14px;font-size:13px;outline:none;background:#fff;
+                    transition:border-color .2s
+                }
+                .hrp-search input:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.09)}
+                .hrp-search-icon{color:#a0aec0;font-size:16px;flex-shrink:0}
 
-                @media(max-width:900px){.hr-kpi-row{grid-template-columns:repeat(2,1fr)}.hr-grid{grid-template-columns:1fr}}
+                /* ── プロフィールカード（一般ユーザー） ── */
+                .hrp-profile{padding:0}
+                .hrp-profile-banner{
+                    height:80px;
+                    background:linear-gradient(120deg,#0f2244,#1a3a6e,#0b5fff);
+                }
+                .hrp-profile-body{padding:0 24px 24px}
+                .hrp-profile-avatar-wrap{margin-top:-28px;margin-bottom:14px}
+                .hrp-profile-avatar{
+                    width:56px;height:56px;border-radius:50%;
+                    background:linear-gradient(135deg,#0b5fff,#6d28d9);
+                    color:#fff;font-size:22px;font-weight:900;
+                    display:inline-flex;align-items:center;justify-content:center;
+                    border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.12)
+                }
+                .hrp-profile-fullname{font-size:18px;font-weight:900;color:#0f2244;margin:0 0 2px}
+                .hrp-profile-dept{font-size:12px;color:#8896a8;font-weight:500}
+                .hrp-profile-divider{height:1px;background:#f0f4ff;margin:16px 0}
+                .hrp-info-row{
+                    display:flex;justify-content:space-between;align-items:center;
+                    padding:9px 0;border-bottom:1px solid #f5f7fb
+                }
+                .hrp-info-row:last-child{border-bottom:none}
+                .hrp-info-label{font-size:12px;color:#8896a8;font-weight:600}
+                .hrp-info-val{font-size:13px;color:#1f2937;font-weight:700;text-align:right}
+
+                /* ── サイドカード ── */
+                .hrp-side-card{
+                    background:#fff;border-radius:16px;
+                    box-shadow:0 1px 3px rgba(0,0,0,.05),0 4px 20px rgba(11,36,80,.05);
+                    border:1px solid #f0f4ff;margin-bottom:18px;overflow:hidden
+                }
+                .hrp-side-head{
+                    padding:14px 20px;border-bottom:1px solid #f0f4ff;
+                    font-size:13px;font-weight:800;color:#0f2244;
+                    display:flex;justify-content:space-between;align-items:center
+                }
+                .hrp-side-body{padding:8px 12px}
+
+                /* ── クイックアクション ── */
+                .hrp-qa-btn{
+                    display:flex;align-items:center;gap:12px;
+                    padding:10px 10px;border-radius:10px;
+                    text-decoration:none;color:#374151;font-size:13px;font-weight:600;
+                    transition:background .15s,color .15s;margin-bottom:2px
+                }
+                .hrp-qa-btn:hover{background:#f0f5ff;color:#0b5fff}
+                .hrp-qa-icon{
+                    width:36px;height:36px;border-radius:10px;
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:16px;flex-shrink:0
+                }
+                .hrp-qa-label{flex:1;line-height:1.2}
+                .hrp-qa-arrow{color:#c8d4e8;font-size:12px}
+
+                /* ── 休暇申請リスト ── */
+                .hrp-leave-item{
+                    display:flex;justify-content:space-between;align-items:center;
+                    padding:10px 0;border-bottom:1px solid #f5f7fb
+                }
+                .hrp-leave-item:last-child{border-bottom:none}
+                .hrp-leave-name{font-size:13px;font-weight:700;color:#1f2937;margin-bottom:2px}
+                .hrp-leave-date{font-size:8px;color:#a0aec0}
+                .hrp-status-badge{
+                    padding:3px 10px;border-radius:20px;
+                    font-size:11px;font-weight:700;white-space:nowrap
+                }
+
+                /* ── ボタン共通 ── */
+                .hrp-btn{
+                    display:inline-flex;align-items:center;gap:6px;
+                    padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;
+                    text-decoration:none;border:none;cursor:pointer;transition:all .15s;
+                    white-space:nowrap
+                }
+                .hrp-btn-primary{background:#0b5fff;color:#fff;box-shadow:0 2px 8px rgba(11,95,255,.3)}
+                .hrp-btn-primary:hover{background:#0047d4;box-shadow:0 4px 12px rgba(11,95,255,.4)}
+                .hrp-btn-ghost{background:#f3f5fb;color:#374151;border:1px solid #e8edf7}
+                .hrp-btn-ghost:hover{background:#e8edf7}
+                .hrp-btn-danger{background:#fff1f2;color:#ef4444;border:1px solid #fecdd3}
+                .hrp-btn-danger:hover{background:#fecdd3}
+
+                /* ── 管理者向けKPI行 ── */
+                .hrp-admin-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+
+                /* ── タブ（管理者用） ── */
+                .hrp-tab-bar{
+                    display:flex;gap:2px;padding:14px 22px 0;
+                    border-bottom:2px solid #eef2f8;background:#fafbff
+                }
+                .hrp-tab{
+                    padding:9px 18px;font-size:13px;font-weight:700;color:#8896a8;
+                    border-radius:8px 8px 0 0;cursor:pointer;transition:color .15s;
+                    border:none;background:transparent;text-decoration:none;
+                    border-bottom:2px solid transparent;margin-bottom:-2px
+                }
+                .hrp-tab.active{color:#0b5fff;border-bottom-color:#0b5fff;background:#fff}
+                .hrp-tab:hover:not(.active){color:#374151;background:#f0f4ff}
+
+                /* ── フッターリンク ── */
+                .hrp-see-all{
+                    display:block;text-align:center;padding:10px 0 4px;
+                    font-size:12px;color:#0b5fff;font-weight:700;text-decoration:none
+                }
+                .hrp-see-all:hover{text-decoration:underline}
+
+                /* ── レスポンシブ ── */
+                @media(max-width:1024px){
+                    .hrp-kpi-grid{grid-template-columns:repeat(2,1fr)}
+                    .hrp-admin-kpi{grid-template-columns:repeat(3,1fr)}
+                }
+                @media(max-width:800px){
+                    .hrp-layout{grid-template-columns:1fr}
+                    .hrp-admin-kpi{grid-template-columns:repeat(2,1fr)}
+                    .hrp-hero-stats{margin-top:12px;width:100%}
+                    .hrp-hero-stat{flex:1;min-width:80px}
+                }
+                @media(max-width:600px){
+                    .hrp-kpi-grid{grid-template-columns:1fr 1fr}
+                    .hrp-hero{padding:22px 20px}
+                    .hrp-hero-name{font-size:20px}
+                    .hrp-hero-stat-val{font-size:20px}
+                }
             </style>
 
-            <div class="hr-page">
+            <div class="hrp">
 
-                <!-- ウェルカムバナー（本人データ） -->
-                <div class="hr-welcome">
-                    <div>
-                        <div class="hr-welcome-title"> ${escapeHtml(employee.name)} さん、こんにちは</div>
-                        <div class="hr-welcome-sub">${escapeHtml(employee.department||'—')} / ${escapeHtml(employee.position||'—')} ｜ 社員ID: ${escapeHtml(employee.employeeId||'—')}</div>
+                <!-- ═══ ヒーローバナー ═══ -->
+                <div class="hrp-hero">
+                    <div class="hrp-hero-left">
+                        <div class="hrp-hero-eyebrow">Human Resources Portal</div>
+                        <div class="hrp-hero-name">👋 ${escapeHtml(employee.name)} さん</div>
+                        <div class="hrp-hero-meta">
+                            <span>${escapeHtml(employee.department||'—')}</span>
+                            <span class="hrp-hero-meta-sep">|</span>
+                            <span>${escapeHtml(employee.position||'—')}</span>
+                            <span class="hrp-hero-meta-sep">|</span>
+                            <span>ID: ${escapeHtml(employee.employeeId||'—')}</span>
+                        </div>
                     </div>
-                    <div class="hr-welcome-meta">
-                        <div class="hr-welcome-item">
-                            <div class="hr-welcome-item-val">${myPaidLeave}日</div>
-                            <div class="hr-welcome-item-lbl">有給残</div>
+                    <div class="hrp-hero-stats">
+                        <div class="hrp-hero-stat">
+                            <div class="hrp-hero-stat-val">${myAttendanceCount}</div>
+                            <div class="hrp-hero-stat-lbl">今月出勤</div>
                         </div>
-                        <div class="hr-welcome-item">
-                            <div class="hr-welcome-item-val">${myAttendanceCount}日</div>
-                            <div class="hr-welcome-item-lbl">今月出勤</div>
+                        <div class="hrp-hero-stat">
+                            <div class="hrp-hero-stat-val">${myPaidLeave}</div>
+                            <div class="hrp-hero-stat-lbl">有給残（日）</div>
                         </div>
-                        <div class="hr-welcome-item">
-                            <div class="hr-welcome-item-val">${myOvertimeHours}h</div>
-                            <div class="hr-welcome-item-lbl">直近残業</div>
+                        <div class="hrp-hero-stat">
+                            <div class="hrp-hero-stat-val">${myOvertimeHours}</div>
+                            <div class="hrp-hero-stat-lbl">直近残業（h）</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- KPI（本人の実数値） -->
-                <div class="hr-kpi-row">
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#f0fdf4;color:#16a34a">📅</div>
-                        <div><div class="hr-kpi-val">${myAttendanceCount}日</div><div class="hr-kpi-lbl">今月出勤日数</div></div>
+                <!-- ═══ 個人KPIカード ═══ -->
+                <div class="hrp-section-label">あなたのステータス</div>
+                <div class="hrp-kpi-grid" style="margin-bottom:${isAdminUser ? '20px' : '28px'}">
+                    <div class="hrp-kpi">
+                        <div class="hrp-kpi-icon" style="background:#e8faf0;color:#16a34a">📅</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${myAttendanceCount}<span style="font-size:14px;font-weight:600;color:#8896a8">日</span></div>
+                            <div class="hrp-kpi-lbl">今月の出勤日数</div>
+                        </div>
                     </div>
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#eff6ff;color:#0b5fff">💴</div>
-                        <div><div class="hr-kpi-val">¥${(myLatestSlip?.net||0).toLocaleString()}</div><div class="hr-kpi-lbl">直近差引支給</div></div>
+                    <div class="hrp-kpi">
+                        <div class="hrp-kpi-icon" style="background:#eff6ff;color:#0b5fff">💴</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val" style="font-size:18px">¥${(myLatestSlip?.net||0).toLocaleString()}</div>
+                            <div class="hrp-kpi-lbl">直近の差引支給額</div>
+                        </div>
                     </div>
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#fef9c3;color:#ca8a04">✈️</div>
-                        <div><div class="hr-kpi-val">${myPaidLeave}日</div><div class="hr-kpi-lbl">有給残日数</div></div>
+                    <div class="hrp-kpi">
+                        <div class="hrp-kpi-icon" style="background:#fffbeb;color:#d97706">✈️</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${myPaidLeave}<span style="font-size:14px;font-weight:600;color:#8896a8">日</span></div>
+                            <div class="hrp-kpi-lbl">有給休暇 残日数</div>
+                        </div>
                     </div>
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#fdf4ff;color:#9333ea">🎯</div>
-                        <div><div class="hr-kpi-val">${myGoalsIncomplete}</div><div class="hr-kpi-lbl">進行中の目標</div></div>
+                    <div class="hrp-kpi">
+                        <div class="hrp-kpi-icon" style="background:#fdf4ff;color:#9333ea">🎯</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${myGoalsIncomplete}<span style="font-size:14px;font-weight:600;color:#8896a8">件</span></div>
+                            <div class="hrp-kpi-lbl">進行中の目標</div>
+                        </div>
                     </div>
                 </div>
 
                 ${isAdminUser ? `
-                <!-- 管理者向け追加KPI -->
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#f0f4ff;color:#4f46e5">�</div>
-                        <div><div class="hr-kpi-val">${teamSize}名</div><div class="hr-kpi-lbl">在籍社員数</div></div>
+                <!-- ═══ 管理者KPI ═══ -->
+                <div class="hrp-section-label">組織サマリー（管理者）</div>
+                <div class="hrp-admin-kpi" style="margin-bottom:28px">
+                    <div class="hrp-kpi" style="border-left:4px solid #0b5fff">
+                        <div class="hrp-kpi-icon" style="background:#eff6ff;color:#0b5fff">🏢</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${teamSize}<span style="font-size:14px;font-weight:600;color:#8896a8">名</span></div>
+                            <div class="hrp-kpi-lbl">在籍社員数</div>
+                        </div>
                     </div>
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#fee2e2;color:#ef4444">⚠️</div>
-                        <div><div class="hr-kpi-val">${allPendingLeaves}</div><div class="hr-kpi-lbl">未承認休暇（全体）</div></div>
+                    <div class="hrp-kpi" style="border-left:4px solid #ef4444">
+                        <div class="hrp-kpi-icon" style="background:#fff1f2;color:#ef4444">⚠️</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${allPendingLeaves}<span style="font-size:14px;font-weight:600;color:#8896a8">件</span></div>
+                            <div class="hrp-kpi-lbl">未承認の休暇申請</div>
+                            ${allPendingLeaves > 0 ? `<a href="/admin/leave-requests" style="font-size:11px;color:#ef4444;font-weight:700;text-decoration:none;margin-top:4px;display:block">→ 今すぐ確認</a>` : ''}
+                        </div>
                     </div>
-                    <div class="hr-kpi">
-                        <div class="hr-kpi-icon" style="background:#f0fdf4;color:#16a34a">💰</div>
-                        <div><div class="hr-kpi-val">${await PayrollRun.countDocuments({ locked: false })}</div><div class="hr-kpi-lbl">未確定給与ラン</div></div>
+                    <div class="hrp-kpi" style="border-left:4px solid #16a34a">
+                        <div class="hrp-kpi-icon" style="background:#e8faf0;color:#16a34a">💰</div>
+                        <div class="hrp-kpi-body">
+                            <div class="hrp-kpi-val">${await PayrollRun.countDocuments({ locked: false })}<span style="font-size:14px;font-weight:600;color:#8896a8">件</span></div>
+                            <div class="hrp-kpi-lbl">未確定の給与ラン</div>
+                        </div>
                     </div>
                 </div>
                 ` : ''}
 
-                <!-- メインエリア -->
-                <div class="hr-grid">
+                <!-- ═══ メインレイアウト ═══ -->
+                <div class="hrp-layout">
+
+                    <!-- ── 左カラム ── -->
                     <div>
                         ${isAdminUser ? `
-                        <div class="hr-card">
-                            <div class="hr-card-head">
-                                <span class="hr-card-title">👤 社員一覧</span>
-                                <a href="/hr/add" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:#0b5fff;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none">＋ 社員追加</a>
+                        <!-- 社員一覧テーブル -->
+                        <div class="hrp-card">
+                            <div class="hrp-card-head">
+                                <div class="hrp-card-title">
+                                    <div class="hrp-card-title-icon" style="background:#eff6ff;color:#0b5fff">👥</div>
+                                    社員一覧
+                                    <span class="hrp-badge-count">${allEmployees.length}名</span>
+                                </div>
+                                <a href="/hr/add" class="hrp-btn hrp-btn-primary">＋ 社員追加</a>
                             </div>
-                            <div class="hr-table-search">
-                                <span style="color:#9ca3af">🔍</span>
-                                <input type="text" id="hrSearch" placeholder="名前・部署・役職で絞り込み..." oninput="filterHrTable(this.value)">
+                            <div class="hrp-search">
+                                <span class="hrp-search-icon">🔍</span>
+                                <input type="text" id="hrSearch" placeholder="名前・部署・役職・社員IDで絞り込み..." oninput="filterHrTable(this.value)">
                             </div>
-                            <div style="overflow-x:auto;max-height:540px;overflow-y:auto">
-                                <table class="hr-table" id="hrTable">
-                                    <colgroup>
-                                        <col class="col-avatar"><col class="col-name"><col class="col-id">
-                                        <col class="col-dept"><col class="col-pos"><col class="col-date">
-                                        <col class="col-leave"><col class="col-action">
-                                    </colgroup>
+                            <div class="hrp-table-wrap" style="max-height:560px;overflow-y:auto">
+                                <table class="hrp-table" id="hrTable">
                                     <thead>
                                         <tr>
-                                            <th></th><th>氏名</th><th>社員ID</th><th>部署</th><th>役職</th><th>入社日</th><th>有給残</th><th>操作</th>
+                                            <th style="width:46px"></th>
+                                            <th style="min-width:100px">氏名</th>
+                                            <th style="min-width:90px">部署</th>
+                                            <th style="min-width:90px">役職</th>
+                                            <th style="min-width:100px">社員ID</th>
+                                            <th style="min-width:100px">入社日</th>
+                                            <th style="min-width:70px">有給残</th>
+                                            <th style="min-width:110px">操作</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         ${allEmployees.map(e => `
-                                        <tr data-search="${escapeHtml(e.name)} ${escapeHtml(e.department||'')} ${escapeHtml(e.position||'')}">
-                                            <td style="padding:8px 10px"><div class="hr-avatar">${escapeHtml((e.name||'?').charAt(0))}</div></td>
-                                            <td style="font-weight:700" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</td>
-                                            <td style="color:#9ca3af;font-size:12px" title="${escapeHtml(e.employeeId||'')}">${escapeHtml(e.employeeId||'—')}</td>
-                                            <td title="${escapeHtml(e.department||'')}">${escapeHtml(e.department||'—')}</td>
-                                            <td title="${escapeHtml(e.position||'')}">${escapeHtml(e.position||'—')}</td>
-                                            <td style="color:#9ca3af;font-size:12px">${e.joinDate ? moment.tz(e.joinDate,'Asia/Tokyo').format('YYYY/MM/DD') : '—'}</td>
-                                            <td><span style="font-weight:700;color:#0b5fff">${balMap[e._id.toString()] ?? 0}日</span></td>
+                                        <tr data-search="${escapeHtml(e.name)} ${escapeHtml(e.department||'')} ${escapeHtml(e.position||'')} ${escapeHtml(e.employeeId||'')}">
+                                            <td style="padding:8px 10px;width:46px">
+                                                <div class="hrp-avatar">${escapeHtml((e.name||'?').charAt(0))}</div>
+                                            </td>
+                                            <td><div class="hrp-emp-name">${escapeHtml(e.name)}</div></td>
+                                            <td><span class="hrp-dept-tag">${escapeHtml(e.department||'—')}</span></td>
+                                            <td><span class="hrp-pos-tag">${escapeHtml(e.position||'—')}</span></td>
+                                            <td style="font-size:11.5px;color:#a0aec0;font-family:monospace">${escapeHtml(e.employeeId||'—')}</td>
+                                            <td style="font-size:12px;color:#6b7280">${e.joinDate ? moment.tz(e.joinDate,'Asia/Tokyo').format('YYYY/MM/DD') : '—'}</td>
+                                            <td><span class="hrp-leave-pill">🌴 ${balMap[e._id.toString()] ?? 0}日</span></td>
                                             <td>
-                                                <div class="hr-tbl-actions">
-                                                    <a href="/hr/edit/${e._id}" class="hr-tbl-btn hr-tbl-btn-edit">✏️ 編集</a>
-                                                    <a href="/hr/delete/${e._id}" class="hr-tbl-btn hr-tbl-btn-del" onclick="return confirm('削除しますか？')">🗑</a>
+                                                <div class="hrp-action-row">
+                                                    <a href="/hr/edit/${e._id}" class="hrp-tbl-btn hrp-tbl-btn-edit">✏️ 編集</a>
+                                                    <a href="/hr/delete/${e._id}" class="hrp-tbl-btn hrp-tbl-btn-del" onclick="return confirm('${escapeHtml(e.name)} を削除しますか？')">🗑</a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -288,68 +537,180 @@ router.get('/hr', requireLogin, async (req, res) => {
                             </div>
                         </div>
                         ` : `
-                        <div class="hr-card">
-                            <div class="hr-card-head">
-                                <span class="hr-card-title">👤 あなたの情報</span>
+                        <!-- 一般ユーザー：プロフィールカード -->
+                        <div class="hrp-card hrp-profile">
+                            <div class="hrp-profile-banner"></div>
+                            <div class="hrp-profile-body">
+                                <div class="hrp-profile-avatar-wrap">
+                                    <div class="hrp-profile-avatar">${escapeHtml((employee.name||'?').charAt(0))}</div>
+                                </div>
+                                <div class="hrp-profile-fullname">${escapeHtml(employee.name)}</div>
+                                <div class="hrp-profile-dept">${escapeHtml(employee.department||'—')} / ${escapeHtml(employee.position||'—')}</div>
+                                <div class="hrp-profile-divider"></div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">社員ID</span>
+                                    <span class="hrp-info-val" style="font-family:monospace;color:#4f6ef7">${escapeHtml(employee.employeeId||'—')}</span>
+                                </div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">部署</span>
+                                    <span class="hrp-info-val">${escapeHtml(employee.department||'—')}</span>
+                                </div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">役職</span>
+                                    <span class="hrp-info-val">${escapeHtml(employee.position||'—')}</span>
+                                </div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">入社日</span>
+                                    <span class="hrp-info-val">${employee.joinDate ? moment.tz(employee.joinDate,'Asia/Tokyo').format('YYYY年MM月DD日') : '—'}</span>
+                                </div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">有給残日数</span>
+                                    <span class="hrp-info-val"><span class="hrp-leave-pill">🌴 ${myPaidLeave}日</span></span>
+                                </div>
+                                <div class="hrp-info-row">
+                                    <span class="hrp-info-label">申請中の休暇</span>
+                                    <span class="hrp-info-val">
+                                        ${myPendingLeaves > 0
+                                            ? `<span style="color:#d97706;font-weight:800">${myPendingLeaves} 件</span>`
+                                            : `<span style="color:#8896a8;font-weight:500">なし</span>`}
+                                    </span>
+                                </div>
                             </div>
-                            <div class="hr-myinfo">
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">氏名</span><span class="hr-myinfo-val">${escapeHtml(employee.name)}</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">社員ID</span><span class="hr-myinfo-val">${escapeHtml(employee.employeeId||'—')}</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">部署</span><span class="hr-myinfo-val">${escapeHtml(employee.department||'—')}</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">役職</span><span class="hr-myinfo-val">${escapeHtml(employee.position||'—')}</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">入社日</span><span class="hr-myinfo-val">${employee.joinDate ? moment.tz(employee.joinDate,'Asia/Tokyo').format('YYYY年MM月DD日') : '—'}</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">有給残日数</span><span class="hr-myinfo-val" style="color:#0b5fff">${myPaidLeave} 日</span></div>
-                                <div class="hr-myinfo-row"><span class="hr-myinfo-label">申請中休暇</span><span class="hr-myinfo-val" style="color:#ca8a04">${myPendingLeaves} 件</span></div>
+                        </div>
+
+                        <!-- 給与明細プレビュー（一般ユーザー） -->
+                        <div class="hrp-card">
+                            <div class="hrp-card-head">
+                                <div class="hrp-card-title">
+                                    <div class="hrp-card-title-icon" style="background:#fffbeb;color:#d97706">💴</div>
+                                    直近の給与明細
+                                </div>
+                                <a href="/hr/payroll" class="hrp-btn hrp-btn-ghost" style="font-size:12px;padding:6px 14px">すべて見る →</a>
+                            </div>
+                            <div style="padding:20px 22px">
+                                ${myLatestSlip ? `
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+                                    <div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px">
+                                        <div style="font-size:11px;color:#8896a8;font-weight:600;margin-bottom:6px">差引支給</div>
+                                        <div style="font-size:20px;font-weight:900;color:#0b5fff">¥${(myLatestSlip.net||0).toLocaleString()}</div>
+                                    </div>
+                                    <div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px">
+                                        <div style="font-size:11px;color:#8896a8;font-weight:600;margin-bottom:6px">総支給</div>
+                                        <div style="font-size:20px;font-weight:900;color:#1f2937">¥${(myLatestSlip.gross||0).toLocaleString()}</div>
+                                    </div>
+                                    <div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px">
+                                        <div style="font-size:11px;color:#8896a8;font-weight:600;margin-bottom:6px">残業時間</div>
+                                        <div style="font-size:20px;font-weight:900;color:#d97706">${myOvertimeHours}h</div>
+                                    </div>
+                                </div>
+                                ` : `<div style="color:#a0aec0;font-size:13px;text-align:center;padding:24px 0">給与明細データがありません</div>`}
                             </div>
                         </div>
                         `}
                     </div>
 
-                    <!-- 右サイドパネル -->
+                    <!-- ── 右サイドバー ── -->
                     <div>
-                        <!-- クイックアクション（実在するルートのみ） -->
-                        <div class="hr-side-card">
-                            <div class="hr-side-head">⚡ クイックアクション</div>
-                            <div class="hr-side-body">
+
+                        <!-- クイックアクション -->
+                        <div class="hrp-side-card">
+                            <div class="hrp-side-head">
+                                <span>⚡ クイックアクション</span>
+                            </div>
+                            <div class="hrp-side-body">
                                 ${isAdminUser ? `
-                                <a href="/hr/add" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#eff6ff;color:#0b5fff">➕</div>社員を追加する</a>
-                                <a href="/hr/payroll/admin" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#f0fdf4;color:#16a34a">💴</div>給与管理メニュー</a>
-                                <a href="/admin/leave-requests" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#fee2e2;color:#ef4444">📋</div>休暇申請を承認する</a>
-                                <a href="/admin/leave-balance" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#fdf4ff;color:#9333ea">🎁</div>有給を付与する</a>
-                                <a href="/hr/daily-report" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#f0f4ff;color:#4f46e5">�</div>日報を確認する</a>
+                                <a href="/hr/add" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#eff6ff;color:#0b5fff">➕</div>
+                                    <span class="hrp-qa-label">社員を追加する</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/hr/payroll/admin" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#e8faf0;color:#16a34a">💴</div>
+                                    <span class="hrp-qa-label">給与管理メニュー</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/admin/leave-requests" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#fff1f2;color:#ef4444">📋</div>
+                                    <span class="hrp-qa-label">休暇申請を承認する${allPendingLeaves > 0 ? ` <span style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:10px;font-size:10px">${allPendingLeaves}</span>` : ''}</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/admin/leave-balance" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#fdf4ff;color:#9333ea">🎁</div>
+                                    <span class="hrp-qa-label">有給を付与する</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/hr/daily-report" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#f0f4ff;color:#4f46e5">📝</div>
+                                    <span class="hrp-qa-label">日報を確認する</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <div style="height:1px;background:#f0f4ff;margin:8px 0"></div>
                                 ` : ''}
-                                <a href="/hr/payroll" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#fffbeb;color:#d97706">📊</div>給与明細を見る</a>
-                                <a href="/leave/apply" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#fef9c3;color:#ca8a04">✈️</div>休暇を申請する</a>
-                                <a href="/leave/my-requests" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#f0fdf4;color:#16a34a">📋</div>自分の休暇申請</a>
-                                <a href="/goals" class="hr-action-btn"><div class="hr-action-btn-icon" style="background:#fdf4ff;color:#9333ea">🎯</div>目標設定を見る</a>
+                                <a href="/hr/payroll" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#fffbeb;color:#d97706">📊</div>
+                                    <span class="hrp-qa-label">給与明細を見る</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/leave/apply" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#fef9c3;color:#ca8a04">✈️</div>
+                                    <span class="hrp-qa-label">休暇を申請する</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/leave/my-requests" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#e8faf0;color:#16a34a">📋</div>
+                                    <span class="hrp-qa-label">自分の休暇申請</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
+                                <a href="/goals" class="hrp-qa-btn">
+                                    <div class="hrp-qa-icon" style="background:#fdf4ff;color:#9333ea">🎯</div>
+                                    <span class="hrp-qa-label">目標設定を見る</span>
+                                    <span class="hrp-qa-arrow">›</span>
+                                </a>
                             </div>
                         </div>
 
-                        <!-- 直近の休暇申請（本人 or 全体） -->
-                        <div class="hr-side-card">
-                            <div class="hr-side-head">✈️ ${isAdminUser ? '直近の休暇申請（全体）' : '自分の休暇申請'}</div>
-                            <div style="padding:14px 18px">
+                        <!-- 直近の休暇申請 -->
+                        <div class="hrp-side-card">
+                            <div class="hrp-side-head">
+                                <span>✈️ ${isAdminUser ? '最近の休暇申請' : '自分の休暇申請'}</span>
+                                ${allPendingLeaves > 0 && isAdminUser ? `<span style="background:#fff1f2;color:#ef4444;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px">${allPendingLeaves}件 未承認</span>` : ''}
+                            </div>
+                            <div style="padding:6px 16px 4px">
                                 ${recentLeaves.length ? recentLeaves.map(l => `
-                                <div class="hr-leave-item">
-                                    <div>
-                                        <div style="font-weight:700;font-size:13px">${isAdminUser ? escapeHtml(l.name||'—') : escapeHtml(l.leaveType||'—')}</div>
-                                        <div style="font-size:11px;color:#9ca3af">${l.startDate ? moment(l.startDate).format('MM/DD') : '—'} 〜 ${l.endDate ? moment(l.endDate).format('MM/DD') : '—'} (${l.days||'?'}日)</div>
+                                <div class="hrp-leave-item">
+                                    <div style="min-width:0;flex:1">
+                                        <div class="hrp-leave-name">${isAdminUser ? escapeHtml(l.name||'—') : escapeHtml(l.leaveType||'—')}</div>
+                                        <div class="hrp-leave-date">
+                                            ${l.startDate ? moment(l.startDate).format('MM/DD') : '—'} 〜
+                                            ${l.endDate ? moment(l.endDate).format('MM/DD') : '—'}
+                                            <span style="margin-left:4px">(${l.days||'?'}日間)</span>
+                                        </div>
                                     </div>
-                                    <span class="hr-badge" style="background:${leaveStatusBg[l.status]||'#f3f4f6'};color:${leaveStatusColor[l.status]||'#6b7280'}">${leaveStatusLabel[l.status]||l.status}</span>
+                                    <span class="hrp-status-badge" style="background:${leaveStatusBg[l.status]||'#f3f4f6'};color:${leaveStatusColor[l.status]||'#6b7280'};margin-left:10px">
+                                        ${leaveStatusLabel[l.status]||l.status}
+                                    </span>
                                 </div>
-                                `).join('') : `<div style="color:#9ca3af;font-size:13px;text-align:center;padding:12px">申請はありません</div>`}
-                                <a href="${isAdminUser ? '/admin/leave-requests' : '/leave/my-requests'}" style="display:block;text-align:center;margin-top:10px;font-size:12px;color:#0b5fff;font-weight:700;text-decoration:none">すべて見る →</a>
+                                `).join('') : `
+                                <div style="color:#a0aec0;font-size:13px;text-align:center;padding:20px 0">
+                                    <div style="font-size:28px;margin-bottom:8px">📭</div>
+                                    休暇申請はありません
+                                </div>`}
+                                <a href="${isAdminUser ? '/admin/leave-requests' : '/leave/my-requests'}" class="hrp-see-all">すべて見る →</a>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
 
             <script>
             function filterHrTable(q) {
-                const kw = q.toLowerCase();
+                const kw = q.toLowerCase().trim();
+                let count = 0;
                 document.querySelectorAll('#hrTable tbody tr').forEach(row => {
-                    row.style.display = (row.dataset.search||'').toLowerCase().includes(kw) ? '' : 'none';
+                    const match = !kw || (row.dataset.search||'').toLowerCase().includes(kw);
+                    row.style.display = match ? '' : 'none';
+                    if(match) count++;
                 });
             }
             </script>
@@ -365,43 +726,308 @@ router.get('/hr', requireLogin, async (req, res) => {
 router.get('/hr/add', requireLogin, (req, res) => {
     const html = `
         <style>
-            .hr-form-card{background:#fff;border-radius:14px;padding:32px 36px;box-shadow:0 4px 18px rgba(11,36,48,.07);max-width:600px;margin:0 auto}
-            .hr-form-actions{display:flex;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid #f1f5f9}
-            .hr-form-btn-primary{padding:10px 28px;background:#0b5fff;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
-            .hr-form-btn-primary:hover{opacity:.88}
-            .hr-form-btn-ghost{padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px;border:none;cursor:pointer}
+            /* ── ページ全体ラッパー ── */
+            .hradd-wrap {
+                max-width: 680px;
+                margin: 0 auto;
+                padding: 0 0 60px;
+            }
+
+            /* ── パンくず ── */
+            .hradd-breadcrumb {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #94a3b8;
+                margin-bottom: 24px;
+            }
+            .hradd-breadcrumb a {
+                color: #64748b;
+                text-decoration: none;
+                transition: color .15s;
+            }
+            .hradd-breadcrumb a:hover { color: #3b82f6; }
+            .hradd-breadcrumb .sep { color: #cbd5e1; }
+
+            /* ── ヘッダー ── */
+            .hradd-header {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            .hradd-icon {
+                width: 52px;
+                height: 52px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+                flex-shrink: 0;
+                box-shadow: 0 4px 14px rgba(59,130,246,.35);
+            }
+            .hradd-title-block h1 {
+                margin: 0 0 4px;
+                font-size: 22px;
+                font-weight: 800;
+                color: #0f172a;
+                letter-spacing: -.3px;
+            }
+            .hradd-title-block p {
+                margin: 0;
+                font-size: 13px;
+                color: #64748b;
+            }
+
+            /* ── カード ── */
+            .hradd-card {
+                background: #fff;
+                border-radius: 18px;
+                box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 32px rgba(15,23,42,.08);
+                overflow: hidden;
+            }
+
+            /* ── セクション ── */
+            .hradd-section {
+                padding: 28px 32px;
+            }
+            .hradd-section + .hradd-section {
+                border-top: 1px solid #f1f5f9;
+            }
+            .hradd-section-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+                color: #94a3b8;
+                margin-bottom: 20px;
+            }
+            .hradd-section-label::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: #f1f5f9;
+            }
+
+            /* ── フィールド ── */
+            .hradd-field {
+                margin-bottom: 18px;
+            }
+            .hradd-field:last-child { margin-bottom: 0; }
+            .hradd-label {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #475569;
+                margin-bottom: 7px;
+                letter-spacing: .01em;
+            }
+            .hradd-required {
+                display: inline-block;
+                background: #fef2f2;
+                color: #ef4444;
+                font-size: 10px;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 4px;
+                letter-spacing: .02em;
+            }
+            .hradd-input {
+                width: 100%;
+                padding: 11px 14px;
+                border-radius: 10px;
+                border: 1.5px solid #e2e8f0;
+                font-size: 14px;
+                color: #0f172a;
+                background: #fafbfc;
+                outline: none;
+                transition: border-color .18s, box-shadow .18s, background .18s;
+                box-sizing: border-box;
+            }
+            .hradd-input::placeholder { color: #c0c8d4; }
+            .hradd-input:hover { border-color: #c7d2e0; background: #fff; }
+            .hradd-input:focus {
+                border-color: #3b82f6;
+                background: #fff;
+                box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+            }
+
+            /* ── グリッド ── */
+            .hradd-grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }
+
+            /* ── フッター（ボタンエリア） ── */
+            .hradd-footer {
+                padding: 20px 32px;
+                background: #f8fafc;
+                border-top: 1px solid #f1f5f9;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+            .hradd-note {
+                font-size: 12px;
+                color: #94a3b8;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .hradd-btn-group {
+                display: flex;
+                gap: 10px;
+            }
+            .hradd-btn-cancel {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 10px 20px;
+                background: #fff;
+                color: #475569;
+                border: 1.5px solid #e2e8f0;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                text-decoration: none;
+                cursor: pointer;
+                transition: border-color .15s, color .15s, background .15s;
+            }
+            .hradd-btn-cancel:hover {
+                border-color: #94a3b8;
+                color: #1e293b;
+                background: #f8fafc;
+            }
+            .hradd-btn-submit {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 26px;
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: #fff;
+                border: none;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 2px 10px rgba(59,130,246,.35);
+                transition: opacity .15s, box-shadow .15s, transform .1s;
+                letter-spacing: .01em;
+            }
+            .hradd-btn-submit:hover {
+                opacity: .92;
+                box-shadow: 0 4px 16px rgba(59,130,246,.45);
+                transform: translateY(-1px);
+            }
+            .hradd-btn-submit:active { transform: translateY(0); }
+
+            @media (max-width: 540px) {
+                .hradd-section { padding: 22px 18px; }
+                .hradd-footer { flex-direction: column; align-items: stretch; padding: 18px; }
+                .hradd-btn-group { flex-direction: column-reverse; }
+                .hradd-grid-2 { grid-template-columns: 1fr; }
+                .hradd-btn-cancel, .hradd-btn-submit { justify-content: center; }
+            }
         </style>
-        <div class="hr-form-card">
-            <div class="hr-form-title">➕ 社員を追加</div>
-            <div class="hr-form-sub">新しい社員の基本情報を入力してください</div>
+
+        <div class="hradd-wrap">
+            <!-- パンくず -->
+            <nav class="hradd-breadcrumb">
+                <a href="/hr"><i class="fa fa-users"></i> 人事管理</a>
+                <span class="sep">›</span>
+                <span>社員追加</span>
+            </nav>
+
+            <!-- ヘッダー -->
+            <div class="hradd-header">
+                <div class="hradd-icon">👤</div>
+                <div class="hradd-title-block">
+                    <h1>社員を追加</h1>
+                    <p>新しい社員の基本情報を入力してください</p>
+                </div>
+            </div>
+
+            <!-- カード -->
             <form action="/hr/add" method="POST">
-                <div class="hr-form-field">
-                    <label>氏名 <span style="color:#ef4444">*</span></label>
-                    <input name="name" required placeholder="山田 太郎">
-                </div>
-                <div class="hr-form-row">
-                    <div class="hr-form-field">
-                        <label>部署 <span style="color:#ef4444">*</span></label>
-                        <input name="department" required placeholder="開発部">
+                <div class="hradd-card">
+
+                    <!-- 基本情報 -->
+                    <div class="hradd-section">
+                        <div class="hradd-section-label">
+                            <i class="fa fa-id-card" style="color:#3b82f6"></i>
+                            基本情報
+                        </div>
+
+                        <div class="hradd-field">
+                            <div class="hradd-label">
+                                氏名 <span class="hradd-required">必須</span>
+                            </div>
+                            <input class="hradd-input" name="name" required placeholder="例：山田 太郎">
+                        </div>
+
+                        <div class="hradd-grid-2">
+                            <div class="hradd-field">
+                                <div class="hradd-label">
+                                    部署 <span class="hradd-required">必須</span>
+                                </div>
+                                <input class="hradd-input" name="department" required placeholder="例：開発部">
+                            </div>
+                            <div class="hradd-field">
+                                <div class="hradd-label">
+                                    役職 <span class="hradd-required">必須</span>
+                                </div>
+                                <input class="hradd-input" name="position" required placeholder="例：エンジニア">
+                            </div>
+                        </div>
                     </div>
-                    <div class="hr-form-field">
-                        <label>役職 <span style="color:#ef4444">*</span></label>
-                        <input name="position" required placeholder="エンジニア">
+
+                    <!-- 雇用情報 -->
+                    <div class="hradd-section">
+                        <div class="hradd-section-label">
+                            <i class="fa fa-calendar-alt" style="color:#3b82f6"></i>
+                            雇用情報
+                        </div>
+
+                        <div class="hradd-grid-2">
+                            <div class="hradd-field">
+                                <div class="hradd-label">
+                                    入社日 <span class="hradd-required">必須</span>
+                                </div>
+                                <input class="hradd-input" type="date" name="joinDate" required>
+                            </div>
+                            <div class="hradd-field">
+                                <div class="hradd-label">メールアドレス</div>
+                                <input class="hradd-input" type="email" name="email" placeholder="例：yamada@company.com">
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="hr-form-row">
-                    <div class="hr-form-field">
-                        <label>入社日 <span style="color:#ef4444">*</span></label>
-                        <input type="date" name="joinDate" required>
+
+                    <!-- フッター -->
+                    <div class="hradd-footer">
+                        <div class="hradd-note">
+                            <i class="fa fa-info-circle"></i>
+                            <span class="hradd-required">必須</span> は必ず入力してください
+                        </div>
+                        <div class="hradd-btn-group">
+                            <a href="/hr" class="hradd-btn-cancel">
+                                <i class="fa fa-times"></i> キャンセル
+                            </a>
+                            <button type="submit" class="hradd-btn-submit">
+                                <i class="fa fa-user-plus"></i> 社員を追加する
+                            </button>
+                        </div>
                     </div>
-                    <div class="hr-form-field">
-                        <label>メールアドレス</label>
-                        <input type="email" name="email" placeholder="example@company.com">
-                    </div>
-                </div>
-                <div class="hr-form-actions">
-                    <button type="submit" class="hr-form-btn-primary">追加する</button>
-                    <a href="/hr" class="hr-form-btn-ghost">キャンセル</a>
+
                 </div>
             </form>
         </div>

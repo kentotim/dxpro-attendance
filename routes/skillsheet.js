@@ -208,6 +208,14 @@ async function saveSheetFromBody(b, emp) {
 
 // ─── 共通：Excel出力 ─────────────────────────────
 async function exportExcel(res, emp, sheet) {
+        // ── Workbook / Worksheet 初期化 ──
+        const wb = new ExcelJS.Workbook();
+        wb.creator  = 'DXPro Attendance';
+        wb.created  = new Date();
+        const ws = wb.addWorksheet('スキルシート', {
+            pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 },
+            views: [{ showGridLines: false }],
+        });
 
         // ── 列幅設定 ──
         ws.columns = [

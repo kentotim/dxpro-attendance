@@ -99,10 +99,20 @@
         showTyping();
         fetch('/api/chatbot', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text, context: {} })
         })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+            if (r.status === 302 || r.redirected) {
+                throw new Error('session_expired');
+            }
+            var ct = r.headers.get('Content-Type') || '';
+            if (!ct.includes('application/json')) {
+                throw new Error('not_json');
+            }
+            return r.json();
+        })
         .then(function (d) {
             hideTyping();
             if (d.ok) {
@@ -111,9 +121,13 @@
                 appendMsg('bot', '⚠️ ' + (d.error || 'エラーが発生しました'), []);
             }
         })
-        .catch(function () {
+        .catch(function (err) {
             hideTyping();
-            appendMsg('bot', '⚠️ 通信エラーが発生しました。再度お試しください。', []);
+            if (err && (err.message === 'session_expired' || err.message === 'not_json')) {
+                appendMsg('bot', '⚠️ セッションが切れました。ページを再読み込みしてください。', []);
+            } else {
+                appendMsg('bot', '⚠️ 通信エラーが発生しました。再度お試しください。', []);
+            }
         })
         .finally(function () {
             if (sendBtn) sendBtn.disabled = false;
