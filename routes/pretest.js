@@ -1212,20 +1212,69 @@ router.get('/admin/pretests', isAdmin, async (req, res) => {
     try {
         const items = await PretestSubmission.find().sort({ createdAt: -1 }).limit(200).lean();
         renderPage(req, res, '入社前テスト一覧', '入社前テスト提出一覧', `
-            <div class="card-enterprise">
-                <h5>提出一覧</h5>
-                <table class="history-table">
-                    <thead><tr><th>提出日時</th><th>氏名</th><th>メール</th><th>言語</th><th>スコア</th><th>開始</th><th>終了</th><th>所要(s)</th><th>詳細</th></tr></thead>
-                    <tbody>
-                        ${items.map(it => {
-                            const started = it.startedAt ? moment(it.startedAt).format('YYYY-MM-DD HH:mm:ss') : '-';
-                            const ended = it.endedAt ? moment(it.endedAt).format('YYYY-MM-DD HH:mm:ss') : '-';
-                            const dur = typeof it.durationSeconds !== 'undefined' && it.durationSeconds !== null ? it.durationSeconds : '-';
-                            const lang = it.lang || 'common';
-                            return `<tr><td>${moment(it.createdAt).format('YYYY-MM-DD HH:mm')}</td><td>${escapeHtml(it.name||'')}</td><td>${escapeHtml(it.email||'')}</td><td>${escapeHtml(lang)}</td><td>${it.score}/${it.total}</td><td>${started}</td><td>${ended}</td><td>${dur}</td><td><a href="/admin/pretest/${it._id}">表示</a></td></tr>`;
-                        }).join('')}
-                    </tbody>
-                </table>
+            <style>
+                .pt-admin-page{max-width:1100px;margin:0 auto}
+                .pt-admin-header{margin-bottom:20px}
+                .pt-admin-title{font-size:20px;font-weight:800;color:#0b2540;margin:0 0 4px}
+                .pt-admin-sub{font-size:13px;color:#6b7280;margin:0}
+                .pt-admin-table-wrap{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(11,36,48,.06);overflow:hidden}
+                .pt-admin-table{width:100%;border-collapse:collapse}
+                .pt-admin-table th{padding:10px 14px;background:#f8fafc;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;text-align:left;white-space:nowrap;border-bottom:2px solid #e9ecef}
+                .pt-admin-table td{padding:11px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:middle}
+                .pt-admin-table tr:last-child td{border-bottom:none}
+                .pt-admin-table tr:hover td{background:#f8fafc}
+                .pt-admin-table td.name-col{font-weight:600;color:#0b2540;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                .pt-admin-table td.email-col{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280}
+                .pt-admin-table td.date-col{white-space:nowrap;color:#9ca3af;font-size:12px}
+                .pt-admin-table td.score-col{white-space:nowrap;font-weight:700;color:#0b5fff}
+                .pt-admin-table td.lang-col{white-space:nowrap}
+                .pt-admin-table td.action-col{white-space:nowrap;width:1%}
+                .pt-lang-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#ede9fe;color:#7c3aed}
+                .pt-view-btn{display:inline-block;padding:4px 12px;background:#eff6ff;color:#0b5fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;transition:background .15s}
+                .pt-view-btn:hover{background:#dbeafe}
+                .pt-empty{text-align:center;color:#9ca3af;font-size:13px;padding:32px}
+            </style>
+            <div class="pt-admin-page">
+                <div class="pt-admin-header">
+                    <div class="pt-admin-title">📋 入社前テスト 提出一覧</div>
+                    <div class="pt-admin-sub">最新 ${items.length} 件を表示しています</div>
+                </div>
+                <div class="pt-admin-table-wrap">
+                    <table class="pt-admin-table">
+                        <thead>
+                            <tr>
+                                <th>提出日時</th>
+                                <th>氏名</th>
+                                <th>メール</th>
+                                <th>言語</th>
+                                <th>スコア</th>
+                                <th>開始</th>
+                                <th>終了</th>
+                                <th>所要(秒)</th>
+                                <th>詳細</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.length === 0 ? `<tr><td colspan="9" class="pt-empty">提出がありません</td></tr>` : items.map(it => {
+                                const started = it.startedAt ? moment(it.startedAt).format('MM/DD HH:mm') : '-';
+                                const ended = it.endedAt ? moment(it.endedAt).format('MM/DD HH:mm') : '-';
+                                const dur = typeof it.durationSeconds !== 'undefined' && it.durationSeconds !== null ? it.durationSeconds : '-';
+                                const lang = it.lang || 'common';
+                                return `<tr>
+                                    <td class="date-col">${moment(it.createdAt).format('YYYY/MM/DD HH:mm')}</td>
+                                    <td class="name-col" title="${escapeHtml(it.name||'')}">${escapeHtml(it.name||'')}</td>
+                                    <td class="email-col" title="${escapeHtml(it.email||'')}">${escapeHtml(it.email||'')}</td>
+                                    <td class="lang-col"><span class="pt-lang-badge">${escapeHtml(lang)}</span></td>
+                                    <td class="score-col">${it.score} / ${it.total}</td>
+                                    <td class="date-col">${started}</td>
+                                    <td class="date-col">${ended}</td>
+                                    <td class="date-col">${dur}</td>
+                                    <td class="action-col"><a href="/admin/pretest/${it._id}" class="pt-view-btn">表示</a></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `);
     } catch (e) {

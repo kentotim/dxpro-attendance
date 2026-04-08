@@ -178,7 +178,7 @@ router.get('/dashboard', requireLogin, async (req, res) => {
         }
 
         /* ── Layout ── */
-        .db-wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 48px; }
+        .db-wrap { width: 100%; padding: 0 0 48px; }
         .db-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
         .db-header-left .greeting { font-size: 22px; font-weight: 800; color: var(--c-text); letter-spacing: -0.4px; }
         .db-header-left .sub { font-size: 13px; color: var(--c-muted); margin-top: 4px; }
@@ -221,7 +221,7 @@ router.get('/dashboard', requireLogin, async (req, res) => {
         .kpi-bar-fill { height: 100%; border-radius: 999px; background: var(--c-primary); }
 
         /* ── Main body grid ── */
-        .db-body { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+        .db-body { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
         @media(max-width:960px){ .db-body { grid-template-columns: 1fr; } }
 
         /* ── Card ── */

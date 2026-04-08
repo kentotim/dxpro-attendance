@@ -195,23 +195,30 @@ router.get('/leave/early', requireLogin, async (req, res) => {
             <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.min.js"></script>
             <style>
-                .el-card{background:#fff;border-radius:14px;padding:28px;box-shadow:0 4px 18px rgba(11,36,48,.08);max-width:600px;margin:0 auto}
-                .el-hero{background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;padding:22px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;gap:16px}
-                .el-hero-icon{font-size:2.5rem;line-height:1}
-                .el-hero h2{margin:0 0 4px;font-size:1.25rem;font-weight:800}
-                .el-hero p{margin:0;opacity:.9;font-size:.9rem}
+                .el-page{max-width:620px;margin:0 auto}
+                .el-hero{background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:26px 28px;color:#fff;margin-bottom:22px;display:flex;align-items:center;gap:18px}
+                .el-hero-icon{font-size:2.6rem;line-height:1;flex-shrink:0}
+                .el-hero h2{margin:0 0 5px;font-size:1.3rem;font-weight:800}
+                .el-hero p{margin:0;opacity:.9;font-size:.9rem;line-height:1.5}
+                .el-card{background:#fff;border-radius:14px;padding:28px 30px;box-shadow:0 4px 18px rgba(11,36,48,.07)}
                 .el-field{margin-bottom:18px}
-                .el-field label{display:block;font-weight:700;margin-bottom:7px;color:#374151;font-size:.95rem}
-                .el-field input,.el-field textarea{width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:.95rem;outline:none;box-sizing:border-box;transition:border-color .15s}
-                .el-field input:focus,.el-field textarea:focus{border-color:#f59e0b}
-                .el-field input[type=time]{width:180px;font-size:1.1rem;font-weight:700;color:#92400e}
-                .el-note{background:#fff7ed;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px}
-                .el-btn{padding:11px 28px;background:#f59e0b;color:#fff;border:none;border-radius:9px;font-weight:800;font-size:1rem;cursor:pointer;transition:background .15s}
-                .el-btn:hover{background:#d97706}
-                .el-bal{display:inline-flex;align-items:center;gap:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 14px;font-size:.9rem;color:#92400e;margin-bottom:20px}
+                .el-field label{display:block;font-weight:700;margin-bottom:7px;color:#374151;font-size:.9rem}
+                .el-field input,.el-field textarea,.el-field select{width:100%;padding:10px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:.95rem;outline:none;box-sizing:border-box;transition:border-color .15s;background:#fff}
+                .el-field input:focus,.el-field textarea:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.1)}
+                .el-field input[type=time]{width:auto;min-width:160px;font-size:1.05rem;font-weight:700;color:#92400e}
+                .el-field input[type=text]{color:#374151}
+                .el-hint{font-size:12px;color:#9ca3af;margin-top:5px}
+                .el-note{background:#fff7ed;border-left:3px solid #f59e0b;border-radius:0 9px 9px 0;padding:11px 15px;font-size:13px;color:#92400e;margin-bottom:22px;line-height:1.6}
+                .el-bal{display:inline-flex;align-items:center;gap:8px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:9px;padding:8px 16px;font-size:.9rem;color:#92400e;margin-bottom:20px;font-weight:600}
+                .el-actions{display:flex;gap:10px;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9}
+                .el-btn-primary{padding:10px 28px;background:#f59e0b;color:#fff;border:none;border-radius:9px;font-weight:800;font-size:.95rem;cursor:pointer;transition:background .15s}
+                .el-btn-primary:hover{background:#d97706}
+                .el-btn-ghost{padding:10px 18px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:.9rem}
+                .el-alert-err{background:#fef2f2;border-left:4px solid #ef4444;padding:11px 14px;margin-bottom:16px;border-radius:0 9px 9px 0;color:#b91c1c;font-size:13px;font-weight:600}
+                .el-alert-ok{background:#f0fdf4;border-left:4px solid #16a34a;padding:11px 14px;margin-bottom:16px;border-radius:0 9px 9px 0;color:#15803d;font-size:13px;font-weight:700}
             </style>
 
-            <div style="max-width:600px;margin:0 auto">
+            <div class="el-page">
                 <div class="el-hero">
                     <div class="el-hero-icon">🚪</div>
                     <div>
@@ -224,31 +231,31 @@ router.get('/leave/early', requireLogin, async (req, res) => {
                     🗓 有給残日数：<strong>${bal.paid} 日</strong>　（早退申請で <strong>0.5日</strong> 消費されます）
                 </div>
 
-                ${req.query.err === 'balance' ? `<div style="background:#fef2f2;border-left:4px solid #ef4444;padding:10px;margin-bottom:16px;border-radius:6px;color:#b91c1c">有給残日数が不足しています</div>` : ''}
-                ${req.query.ok ? `<div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:10px;margin-bottom:16px;border-radius:6px;color:#15803d;font-weight:700">✅ 早退申請を送信しました</div>` : ''}
+                ${req.query.err === 'balance' ? `<div class="el-alert-err">⚠️ 有給残日数が不足しています</div>` : ''}
+                ${req.query.ok ? `<div class="el-alert-ok">✅ 早退申請を送信しました</div>` : ''}
 
                 <div class="el-card">
                     <form action="/leave/early" method="POST" id="earlyForm">
                         <div class="el-field">
-                            <label>📅 早退日</label>
+                            <label>📅 早退日 <span style="color:#ef4444">*</span></label>
                             <input type="text" id="earlyDate" name="earlyDate" required placeholder="日付を選択">
                         </div>
                         <div class="el-field">
-                            <label>🕐 早退予定時刻</label>
+                            <label>🕐 早退予定時刻 <span style="color:#ef4444">*</span></label>
                             <input type="time" name="earlyLeaveTime" id="earlyLeaveTime" required>
-                            <div style="font-size:12px;color:#9ca3af;margin-top:4px">※ 通常勤務終了前の時刻を入力してください</div>
+                            <div class="el-hint">通常勤務終了前の時刻を入力してください</div>
                         </div>
                         <div class="el-note">
                             上司への連絡は別途行ってください。この申請は有給残日数から <strong>0.5日</strong> 消費します。
                         </div>
                         <div class="el-field">
-                            <label>📝 早退理由</label>
+                            <label>📝 早退理由 <span style="color:#ef4444">*</span></label>
                             <textarea name="reason" rows="4" required placeholder="例：体調不良のため、午後の診察のため　など"></textarea>
                         </div>
-                        <div style="display:flex;gap:10px;align-items:center">
-                            <button type="submit" class="el-btn">申請する</button>
-                            <a href="/leave/apply" style="padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600">← 休暇申請へ</a>
-                            <a href="/leave/my-requests" style="padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600">申請履歴</a>
+                        <div class="el-actions">
+                            <button type="submit" class="el-btn-primary">申請する</button>
+                            <a href="/leave/apply" class="el-btn-ghost">← 休暇申請へ</a>
+                            <a href="/leave/my-requests" class="el-btn-ghost">申請履歴</a>
                         </div>
                     </form>
                 </div>

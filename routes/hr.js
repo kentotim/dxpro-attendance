@@ -364,14 +364,47 @@ router.get('/hr', requireLogin, async (req, res) => {
 // 社員追加
 router.get('/hr/add', requireLogin, (req, res) => {
     const html = `
-        <form action="/hr/add" method="POST">
-            <label>氏名: <input name="name" required></label><br>
-            <label>部署: <input name="department" required></label><br>
-            <label>役職: <input name="position" required></label><br>
-            <label>入社日: <input type="date" name="joinDate" required></label><br>
-            <label>メール: <input type="email" name="email"></label><br>
-            <button type="submit">追加</button>
-        </form>
+        <style>
+            .hr-form-card{background:#fff;border-radius:14px;padding:32px 36px;box-shadow:0 4px 18px rgba(11,36,48,.07);max-width:600px;margin:0 auto}
+            .hr-form-actions{display:flex;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid #f1f5f9}
+            .hr-form-btn-primary{padding:10px 28px;background:#0b5fff;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+            .hr-form-btn-primary:hover{opacity:.88}
+            .hr-form-btn-ghost{padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px;border:none;cursor:pointer}
+        </style>
+        <div class="hr-form-card">
+            <div class="hr-form-title">➕ 社員を追加</div>
+            <div class="hr-form-sub">新しい社員の基本情報を入力してください</div>
+            <form action="/hr/add" method="POST">
+                <div class="hr-form-field">
+                    <label>氏名 <span style="color:#ef4444">*</span></label>
+                    <input name="name" required placeholder="山田 太郎">
+                </div>
+                <div class="hr-form-row">
+                    <div class="hr-form-field">
+                        <label>部署 <span style="color:#ef4444">*</span></label>
+                        <input name="department" required placeholder="開発部">
+                    </div>
+                    <div class="hr-form-field">
+                        <label>役職 <span style="color:#ef4444">*</span></label>
+                        <input name="position" required placeholder="エンジニア">
+                    </div>
+                </div>
+                <div class="hr-form-row">
+                    <div class="hr-form-field">
+                        <label>入社日 <span style="color:#ef4444">*</span></label>
+                        <input type="date" name="joinDate" required>
+                    </div>
+                    <div class="hr-form-field">
+                        <label>メールアドレス</label>
+                        <input type="email" name="email" placeholder="example@company.com">
+                    </div>
+                </div>
+                <div class="hr-form-actions">
+                    <button type="submit" class="hr-form-btn-primary">追加する</button>
+                    <a href="/hr" class="hr-form-btn-ghost">キャンセル</a>
+                </div>
+            </form>
+        </div>
     `;
     renderPage(req, res, '社員追加', '新しい社員を追加', html);
 });
@@ -398,17 +431,63 @@ router.get('/hr/edit/:id', requireLogin, async (req, res) => {
     const bal = await LeaveBalance.findOne({ employeeId: employee._id }) || { paid: 0 };
 
     const html = `
-        <div style="background:#fff;border-radius:14px;padding:28px;box-shadow:0 4px 14px rgba(11,36,48,.06);max-width:600px">
+        <style>
+            .hr-form-card{background:#fff;border-radius:14px;padding:32px 36px;box-shadow:0 4px 18px rgba(11,36,48,.07);max-width:600px;margin:0 auto}
+            .hr-form-title{font-size:20px;font-weight:800;color:#0b2540;margin:0 0 4px}
+            .hr-form-sub{font-size:13px;color:#6b7280;margin:0 0 28px}
+            .hr-form-field{margin-bottom:18px}
+            .hr-form-field label{display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px}
+            .hr-form-field input,.hr-form-field select{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid #e5e7eb;font-size:14px;outline:none;transition:border-color .2s;box-sizing:border-box;background:#fff}
+            .hr-form-field input:focus,.hr-form-field select:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.08)}
+            .hr-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+            .hr-form-hint{font-size:11px;color:#9ca3af;margin-top:4px}
+            .hr-form-leave{display:flex;align-items:center;gap:8px}
+            .hr-form-leave input{width:120px!important;flex-shrink:0}
+            .hr-form-leave span{font-size:13px;color:#6b7280}
+            .hr-form-actions{display:flex;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid #f1f5f9}
+            .hr-form-btn-primary{padding:10px 28px;background:#0b5fff;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+            .hr-form-btn-primary:hover{opacity:.88}
+            .hr-form-btn-ghost{padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px;border:none;cursor:pointer}
+        </style>
+        <div class="hr-form-card">
+            <div class="hr-form-title">✏️ 社員情報を編集</div>
+            <div class="hr-form-sub">${escapeHtml(employee.name)} の情報を更新します</div>
             <form action="/hr/edit/${id}" method="POST">
-                <div style="margin-bottom:14px"><label style="font-weight:600;display:block;margin-bottom:4px">氏名</label><input name="name" value="${escapeHtml(employee.name)}" required style="width:100%;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box"></div>
-                <div style="margin-bottom:14px"><label style="font-weight:600;display:block;margin-bottom:4px">部署</label><input name="department" value="${escapeHtml(employee.department)}" required style="width:100%;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box"></div>
-                <div style="margin-bottom:14px"><label style="font-weight:600;display:block;margin-bottom:4px">役職</label><input name="position" value="${escapeHtml(employee.position)}" required style="width:100%;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box"></div>
-                <div style="margin-bottom:14px"><label style="font-weight:600;display:block;margin-bottom:4px">入社日</label><input type="date" name="joinDate" value="${joinDateStr}" required style="padding:9px;border-radius:8px;border:1px solid #ddd"></div>
-                <div style="margin-bottom:14px"><label style="font-weight:600;display:block;margin-bottom:4px">メール</label><input type="email" name="email" value="${escapeHtml(employee.email || '')}" style="width:100%;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box"></div>
-                <div style="margin-bottom:20px"><label style="font-weight:600;display:block;margin-bottom:4px">有給残日数（LeaveBalance）</label><input type="number" name="paidLeave" value="${bal.paid}" min="0" style="width:100px;padding:9px;border-radius:8px;border:1px solid #ddd"></div>
-                <div style="display:flex;gap:10px">
-                    <button type="submit" style="padding:10px 26px;background:#0b5fff;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">更新</button>
-                    <a href="/hr" style="padding:10px 18px;background:#f3f4f6;color:#374151;border-radius:8px;text-decoration:none;font-weight:600">キャンセル</a>
+                <div class="hr-form-field">
+                    <label>氏名 <span style="color:#ef4444">*</span></label>
+                    <input name="name" value="${escapeHtml(employee.name)}" required placeholder="山田 太郎">
+                </div>
+                <div class="hr-form-row">
+                    <div class="hr-form-field">
+                        <label>部署 <span style="color:#ef4444">*</span></label>
+                        <input name="department" value="${escapeHtml(employee.department)}" required placeholder="開発部">
+                    </div>
+                    <div class="hr-form-field">
+                        <label>役職 <span style="color:#ef4444">*</span></label>
+                        <input name="position" value="${escapeHtml(employee.position)}" required placeholder="エンジニア">
+                    </div>
+                </div>
+                <div class="hr-form-row">
+                    <div class="hr-form-field">
+                        <label>入社日 <span style="color:#ef4444">*</span></label>
+                        <input type="date" name="joinDate" value="${joinDateStr}" required>
+                    </div>
+                    <div class="hr-form-field">
+                        <label>メールアドレス</label>
+                        <input type="email" name="email" value="${escapeHtml(employee.email || '')}" placeholder="example@company.com">
+                    </div>
+                </div>
+                <div class="hr-form-field">
+                    <label>有給残日数</label>
+                    <div class="hr-form-leave">
+                        <input type="number" name="paidLeave" value="${bal.paid}" min="0" step="0.5">
+                        <span>日</span>
+                    </div>
+                    <div class="hr-form-hint">LeaveBalance テーブルの値を直接更新します</div>
+                </div>
+                <div class="hr-form-actions">
+                    <button type="submit" class="hr-form-btn-primary">更新する</button>
+                    <a href="/hr" class="hr-form-btn-ghost">キャンセル</a>
                 </div>
             </form>
         </div>
@@ -760,74 +839,111 @@ router.get('/hr/payroll/admin/new', requireLogin, async (req, res) => {
     const preselect = req.query.employeeId || '';
 
     const html = `
-        <div class="container mt-4">
-            <h4>新しい給与を登録</h4>
-
+        <style>
+            .pf-card{background:#fff;border-radius:14px;padding:30px 32px;box-shadow:0 4px 18px rgba(11,36,48,.07);max-width:760px;margin:0 auto}
+            .pf-title{font-size:19px;font-weight:800;color:#0b2540;margin:0 0 4px}
+            .pf-sub{font-size:13px;color:#6b7280;margin:0 0 26px}
+            .pf-section{margin-bottom:22px}
+            .pf-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #f1f5f9}
+            .pf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+            .pf-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+            .pf-field{display:flex;flex-direction:column;gap:5px}
+            .pf-field label{font-size:12px;font-weight:600;color:#374151}
+            .pf-field input,.pf-field select{padding:8px 11px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
+            .pf-field input:focus,.pf-field select:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.08)}
+            .pf-actions{display:flex;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #f1f5f9}
+            .pf-btn-primary{padding:10px 28px;background:#0b5fff;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+            .pf-btn-primary:hover{opacity:.88}
+            .pf-btn-ghost{padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px}
+            @media(max-width:600px){.pf-grid{grid-template-columns:1fr 1fr}.pf-grid-2{grid-template-columns:1fr}}
+        </style>
+        <div class="pf-card">
+            <div class="pf-title">＋ 新規給与登録</div>
+            <div class="pf-sub">社員の給与明細を新規登録します</div>
             <form action="/hr/payroll/admin/add" method="POST">
-                <label>対象月:
-                    <input type="month" name="payMonth" required>
-                </label><br><br>
 
-                <label>社員:
-                    <select name="employeeId" required>
-                        ${employees.map(emp => `<option value="${emp._id}" ${emp._id.toString()===preselect?'selected':''}>${emp.name}</option>`).join('')}
-                    </select>
-                </label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">📋 基本情報</div>
+                    <div class="pf-grid-2">
+                        <div class="pf-field">
+                            <label>対象月 <span style="color:#ef4444">*</span></label>
+                            <input type="month" name="payMonth" required>
+                        </div>
+                        <div class="pf-field">
+                            <label>社員 <span style="color:#ef4444">*</span></label>
+                            <select name="employeeId" required>
+                                ${employees.map(emp => `<option value="${emp._id}" ${emp._id.toString()===preselect?'selected':''}>${emp.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-                <label>勤務日数: <input type="number" name="workDays" required></label><br>
-                <label>欠勤日数: <input type="number" name="absentDays" required></label><br>
-                <label>遅刻回数: <input type="number" name="lateCount" required></label><br>
-                <label>早退回数: <input type="number" name="earlyLeaveCount" required></label><br>
-                <label>時間外: <input type="number" name="overtimeHours" required></label><br>
-                <label>深夜時間: <input type="number" name="nightHours" required></label><br>
-                <label>休日時間: <input type="number" name="holidayHours" required></label><br>
-                <label>休日深夜: <input type="number" name="holidayNightHours" required></label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">📅 勤怠情報</div>
+                    <div class="pf-grid">
+                        <div class="pf-field"><label>勤務日数</label><input type="number" name="workDays" value="0" required min="0"></div>
+                        <div class="pf-field"><label>欠勤日数</label><input type="number" name="absentDays" value="0" required min="0"></div>
+                        <div class="pf-field"><label>遅刻回数</label><input type="number" name="lateCount" value="0" required min="0"></div>
+                        <div class="pf-field"><label>早退回数</label><input type="number" name="earlyLeaveCount" value="0" required min="0"></div>
+                        <div class="pf-field"><label>時間外（h）</label><input type="number" name="overtimeHours" value="0" required min="0"></div>
+                        <div class="pf-field"><label>深夜時間（h）</label><input type="number" name="nightHours" value="0" required min="0"></div>
+                        <div class="pf-field"><label>休日時間（h）</label><input type="number" name="holidayHours" value="0" required min="0"></div>
+                        <div class="pf-field"><label>休日深夜（h）</label><input type="number" name="holidayNightHours" value="0" required min="0"></div>
+                    </div>
+                </div>
 
-                <h5>手当</h5>
-                <label>役職手当: <input type="number" name="allowances[役職手当]" value="0"></label>
-                <label>家族手当: <input type="number" name="allowances[家族手当]" value="0"></label>
-                <label>現場手当: <input type="number" name="allowances[現場手当]" value="0"></label>
-                <label>手当-2: <input type="number" name="allowances[手当-2]" value="0"></label>
-                <label>手当-3: <input type="number" name="allowances[手当-3]" value="0"></label>
-                <label>手当-4: <input type="number" name="allowances[手当-4]" value="0"></label>
-                <label>手当-5: <input type="number" name="allowances[手当-5]" value="0"></label>
-                <label>手当-6: <input type="number" name="allowances[手当-6]" value="0"></label>
-                <label>手当-7: <input type="number" name="allowances[手当-7]" value="0"></label>
-                <label>手当-8: <input type="number" name="allowances[手当-8]" value="0"></label>
-                <label>手当-9: <input type="number" name="allowances[手当-9]" value="0"></label>
-                <label>手当-10: <input type="number" name="allowances[手当-10]" value="0"></label>
+                <div class="pf-section">
+                    <div class="pf-section-title">💰 給与金額</div>
+                    <div class="pf-grid">
+                        <div class="pf-field"><label>基本給（円）</label><input type="number" name="baseSalary" value="0" required min="0"></div>
+                        <div class="pf-field"><label>総支給（円）</label><input type="number" name="gross" value="0" required min="0"></div>
+                        <div class="pf-field"><label>差引支給（円）</label><input type="number" name="net" value="0" required min="0"></div>
+                    </div>
+                </div>
 
-                <h5>控除</h5>
-                <label>健康保険料: <input type="number" name="deductions[健康保険料]" value="0"></label>
-                <label>厚生年金保険料: <input type="number" name="deductions[厚生年金保険料]" value="0"></label>
-                <label>その他社会保険料: <input type="number" name="deductions[その他社会保険料]" value="0"></label>
-                <label>雇用保険料: <input type="number" name="deductions[雇用保険料]" value="0"></label>
-                <label>住民税: <input type="number" name="deductions[住民税]" value="0"></label>
-                <label>控除-1: <input type="number" name="deductions[控除-1]" value="0"></label>
-                <label>控除-2: <input type="number" name="deductions[控除-2]" value="0"></label>
-                <label>控除-3: <input type="number" name="deductions[控除-3]" value="0"></label>
-                <label>控除-4: <input type="number" name="deductions[控除-4]" value="0"></label>
-                <label>控除-5: <input type="number" name="deductions[控除-5]" value="0"></label>
-                <label>所得税: <input type="number" name="incomeTax" required></label><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">🎁 手当</div>
+                    <div class="pf-grid">
+                        ${['役職手当','家族手当','現場手当','手当-2','手当-3','手当-4','手当-5','手当-6','手当-7','手当-8','手当-9','手当-10']
+                          .map(n=>`<div class="pf-field"><label>${n}</label><input type="number" name="allowances[${n}]" value="0" min="0"></div>`).join('')}
+                    </div>
+                </div>
 
-                <h5>通勤費</h5>
-                <label>非課税: <input type="number" name="commute[nonTax]" value="0"></label>
-                <label>課税: <input type="number" name="commute[tax]" value="0"></label>
-                
-                <label>基本給: <input type="number" name="baseSalary" required></label><br>
-                <label>総支給: <input type="number" name="gross" required></label><br>
-                <label>差引支給: <input type="number" name="net" required></label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">📉 控除</div>
+                    <div class="pf-grid">
+                        ${['健康保険料','厚生年金保険料','その他社会保険料','雇用保険料','住民税','控除-1','控除-2','控除-3','控除-4','控除-5']
+                          .map(n=>`<div class="pf-field"><label>${n}</label><input type="number" name="deductions[${n}]" value="0" min="0"></div>`).join('')}
+                        <div class="pf-field"><label>所得税</label><input type="number" name="incomeTax" value="0" required min="0"></div>
+                    </div>
+                </div>
 
-                <label>ステータス:
-                    <select name="status">
-                        <option value="draft">下書き</option>
-                        <option value="issued">発行済み</option>
-                        <option value="paid">支払済み</option>
-                    </select>
-                </label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">🚌 通勤費</div>
+                    <div class="pf-grid-2">
+                        <div class="pf-field"><label>非課税通勤費（円）</label><input type="number" name="commute[nonTax]" value="0" min="0"></div>
+                        <div class="pf-field"><label>課税通勤費（円）</label><input type="number" name="commute[tax]" value="0" min="0"></div>
+                    </div>
+                </div>
 
-                <button type="submit" class="btn btn-success">登録</button>
-                <a href="/hr/payroll/admin" class="btn btn-secondary ms-2">戻る</a>
+                <div class="pf-section">
+                    <div class="pf-section-title">📌 ステータス</div>
+                    <div style="max-width:200px">
+                        <div class="pf-field">
+                            <label>ステータス</label>
+                            <select name="status">
+                                <option value="draft">下書き</option>
+                                <option value="issued">発行済み</option>
+                                <option value="paid">支払済み</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pf-actions">
+                    <button type="submit" class="pf-btn-primary">登録する</button>
+                    <a href="/hr/payroll/admin" class="pf-btn-ghost">戻る</a>
+                </div>
             </form>
         </div>
     `;
@@ -841,50 +957,91 @@ router.get('/hr/payroll/admin/edit/:slipId', requireLogin, async (req, res) => {
     const slip = await PayrollSlip.findById(req.params.slipId).populate('employeeId runId');
     if (!slip) return res.status(404).send('給与明細が見つかりません');
 
+    const aMap = {};
+    (slip.allowances||[]).forEach(a => {
+        const key = a.name === '手当-1' ? '現場手当' : a.name;
+        aMap[key] = a.amount;
+    });
+    const dMap = {};
+    (slip.deductions||[]).forEach(d => { dMap[d.name] = d.amount; });
+
+    const allowanceFields = ['役職手当','家族手当','現場手当','手当-2','手当-3','手当-4','手当-5','手当-6','手当-7','手当-8','手当-9','手当-10'];
+    const deductionFields = ['健康保険料','厚生年金保険料','その他社会保険料','雇用保険料','住民税','控除-1','控除-2','控除-3','控除-4','控除-5','控除-6','控除-7','控除-8','控除-9','控除-10'];
+
     const html = `
-        <div class="container mt-4">
-            <h4>${slip.employeeId.name} の給与明細を編集 (${slip.runId?.periodFrom.getFullYear()}年${slip.runId?.periodFrom.getMonth() + 1}月)</h4>
-
+        <style>
+            .pf-card{background:#fff;border-radius:14px;padding:30px 32px;box-shadow:0 4px 18px rgba(11,36,48,.07);max-width:760px;margin:0 auto}
+            .pf-title{font-size:19px;font-weight:800;color:#0b2540;margin:0 0 4px}
+            .pf-sub{font-size:13px;color:#6b7280;margin:0 0 26px}
+            .pf-section{margin-bottom:22px}
+            .pf-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #f1f5f9}
+            .pf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+            .pf-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+            .pf-field{display:flex;flex-direction:column;gap:5px}
+            .pf-field label{font-size:12px;font-weight:600;color:#374151}
+            .pf-field input,.pf-field select{padding:8px 11px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
+            .pf-field input:focus,.pf-field select:focus{border-color:#0b5fff;box-shadow:0 0 0 3px rgba(11,95,255,.08)}
+            .pf-actions{display:flex;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #f1f5f9}
+            .pf-btn-primary{padding:10px 28px;background:#0b5fff;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+            .pf-btn-primary:hover{opacity:.88}
+            .pf-btn-ghost{padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px}
+            @media(max-width:600px){.pf-grid{grid-template-columns:1fr 1fr}.pf-grid-2{grid-template-columns:1fr}}
+        </style>
+        <div class="pf-card">
+            <div class="pf-title">✏️ 給与明細を編集</div>
+            <div class="pf-sub">${escapeHtml(slip.employeeId.name)} — ${slip.runId?.periodFrom.getFullYear()}年${slip.runId?.periodFrom.getMonth() + 1}月分</div>
             <form action="/hr/payroll/admin/edit/${slip._id}" method="POST">
-                <label>基本給: <input type="number" name="baseSalary" value="${slip.baseSalary}" required></label><br>
-                <label>総支給: <input type="number" name="gross" value="${slip.gross}" required></label><br>
-                <label>差引支給: <input type="number" name="net" value="${slip.net}" required></label><br><br>
 
-                <h5>手当</h5>
-                ${(() => {
-                    // 既存allowancesをマップ化（手当-1→現場手当 の旧データも吸収）
-                    const aMap = {};
-                    (slip.allowances||[]).forEach(a => {
-                        const key = a.name === '手当-1' ? '現場手当' : a.name;
-                        aMap[key] = a.amount;
-                    });
-                    const fields = ['役職手当','家族手当','現場手当','手当-2','手当-3','手当-4','手当-5','手当-6','手当-7','手当-8','手当-9','手当-10'];
-                    return fields.map(n => `<label>${n}: <input type="number" name="allowances[${n}]" value="${aMap[n]||0}"></label><br>`).join('');
-                })()}
+                <div class="pf-section">
+                    <div class="pf-section-title">💰 給与金額</div>
+                    <div class="pf-grid">
+                        <div class="pf-field"><label>基本給（円）</label><input type="number" name="baseSalary" value="${slip.baseSalary}" required min="0"></div>
+                        <div class="pf-field"><label>総支給（円）</label><input type="number" name="gross" value="${slip.gross}" required min="0"></div>
+                        <div class="pf-field"><label>差引支給（円）</label><input type="number" name="net" value="${slip.net}" required min="0"></div>
+                    </div>
+                </div>
 
-                <h5>控除</h5>
-                ${(() => {
-                    const dMap = {};
-                    (slip.deductions||[]).forEach(d => { dMap[d.name] = d.amount; });
-                    const fields = ['健康保険料','厚生年金保険料','その他社会保険料','雇用保険料','住民税','控除-1','控除-2','控除-3','控除-4','控除-5','控除-6','控除-7','控除-8','控除-9','控除-10'];
-                    return fields.map(n => `<label>${n}: <input type="number" name="deductions[${n}]" value="${dMap[n]||0}"></label><br>`).join('');
-                })()}
-                <label>所得税: <input type="number" name="incomeTax" value="${slip.incomeTax}"></label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">🎁 手当</div>
+                    <div class="pf-grid">
+                        ${allowanceFields.map(n=>`<div class="pf-field"><label>${n}</label><input type="number" name="allowances[${n}]" value="${aMap[n]||0}" min="0"></div>`).join('')}
+                    </div>
+                </div>
 
-                <h5>通勤費</h5>
-                <label>非課税: <input type="number" name="commute[nonTax]" value="${slip.commute?.nonTax || 0}"></label><br>
-                <label>課税: <input type="number" name="commute[tax]" value="${slip.commute?.tax || 0}"></label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">📉 控除</div>
+                    <div class="pf-grid">
+                        ${deductionFields.map(n=>`<div class="pf-field"><label>${n}</label><input type="number" name="deductions[${n}]" value="${dMap[n]||0}" min="0"></div>`).join('')}
+                        <div class="pf-field"><label>所得税</label><input type="number" name="incomeTax" value="${slip.incomeTax||0}" min="0"></div>
+                    </div>
+                </div>
 
-                <label>ステータス:
-                    <select name="status">
-                        <option value="draft" ${slip.status === 'draft' ? 'selected' : ''}>下書き</option>
-                        <option value="issued" ${slip.status === 'issued' ? 'selected' : ''}>発行済み</option>
-                        <option value="locked" ${slip.status === 'locked' ? 'selected' : ''}>確定</option>
-                    </select>
-                </label><br><br>
+                <div class="pf-section">
+                    <div class="pf-section-title">🚌 通勤費</div>
+                    <div class="pf-grid-2">
+                        <div class="pf-field"><label>非課税通勤費（円）</label><input type="number" name="commute[nonTax]" value="${slip.commute?.nonTax || 0}" min="0"></div>
+                        <div class="pf-field"><label>課税通勤費（円）</label><input type="number" name="commute[tax]" value="${slip.commute?.tax || 0}" min="0"></div>
+                    </div>
+                </div>
 
-                <button type="submit" class="btn btn-primary">保存</button>
-                <a href="/hr/payroll/${slip.employeeId._id}" class="btn btn-secondary ms-2">戻る</a>
+                <div class="pf-section">
+                    <div class="pf-section-title">📌 ステータス</div>
+                    <div style="max-width:200px">
+                        <div class="pf-field">
+                            <label>ステータス</label>
+                            <select name="status">
+                                <option value="draft" ${slip.status === 'draft' ? 'selected' : ''}>下書き</option>
+                                <option value="issued" ${slip.status === 'issued' ? 'selected' : ''}>発行済み</option>
+                                <option value="locked" ${slip.status === 'locked' ? 'selected' : ''}>確定</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pf-actions">
+                    <button type="submit" class="pf-btn-primary">保存する</button>
+                    <a href="/hr/payroll/${slip.employeeId._id}" class="pf-btn-ghost">戻る</a>
+                </div>
             </form>
         </div>
     `;

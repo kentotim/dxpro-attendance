@@ -439,58 +439,79 @@ function buildAdminListPage(employees, sheetSet) {
         const hasSheet = sheetSet.has(String(emp._id));
         return `
         <tr>
-            <td style="padding:10px 14px;font-weight:600;color:#1e293b;">${emp.employeeId}</td>
-            <td style="padding:10px 14px;">${emp.name}</td>
-            <td style="padding:10px 14px;color:#64748b;">${emp.department}</td>
-            <td style="padding:10px 14px;color:#64748b;">${emp.position}</td>
-            <td style="padding:10px 14px;text-align:center;">
+            <td class="ss-adm-td ss-adm-id">${emp.employeeId}</td>
+            <td class="ss-adm-td ss-adm-name">${emp.name}</td>
+            <td class="ss-adm-td ss-adm-dept">${emp.department || '—'}</td>
+            <td class="ss-adm-td ss-adm-pos">${emp.position || '—'}</td>
+            <td class="ss-adm-td ss-adm-status">
                 ${hasSheet
-                    ? `<span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;">作成済み</span>`
-                    : `<span style="background:#f1f5f9;color:#94a3b8;font-size:11px;padding:2px 10px;border-radius:20px;">未作成</span>`}
+                    ? `<span class="ss-badge ss-badge-ok">✅ 作成済み</span>`
+                    : `<span class="ss-badge ss-badge-none">未作成</span>`}
             </td>
-            <td style="padding:10px 14px;text-align:center;">
-                <a href="/skillsheet/admin/${emp._id}"
-                   style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:5px 14px;font-size:12.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
-                   <i class="fa-solid fa-pen-to-square"></i> 編集
-                </a>
-                ${hasSheet ? `
-                <a href="/skillsheet/admin/${emp._id}/export"
-                   style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:6px;padding:5px 14px;font-size:12.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-left:6px;">
-                   <i class="fa-solid fa-file-excel"></i> Excel
-                </a>` : ''}
+            <td class="ss-adm-td ss-adm-action">
+                <div style="display:flex;gap:6px;justify-content:center">
+                    <a href="/skillsheet/admin/${emp._id}" class="ss-adm-btn ss-adm-btn-edit">
+                        <i class="fa-solid fa-pen-to-square"></i> 編集
+                    </a>
+                    ${hasSheet ? `
+                    <a href="/skillsheet/admin/${emp._id}/export" class="ss-adm-btn ss-adm-btn-export">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </a>` : ''}
+                </div>
             </td>
         </tr>`;
     }).join('');
 
     return `
 <style>
-.adm-table { width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06); }
-.adm-table thead th { background:#1e3a5f;color:#fff;padding:11px 14px;font-size:12.5px;font-weight:700;text-align:left; }
-.adm-table tbody tr { border-bottom:1px solid #f1f5f9;transition:background .12s; }
-.adm-table tbody tr:hover { background:#f8faff; }
-.adm-table tbody td { font-size:13px; }
+.ss-adm-page{max-width:1100px;margin:0 auto}
+.ss-adm-header{margin-bottom:22px}
+.ss-adm-title{font-size:20px;font-weight:800;color:#0b2540;margin:0 0 4px}
+.ss-adm-sub{font-size:13px;color:#6b7280;margin:0}
+.ss-adm-wrap{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(11,36,48,.06);overflow:hidden}
+.ss-adm-table{width:100%;border-collapse:collapse}
+.ss-adm-table thead th{padding:11px 16px;background:#1e3a5f;color:#fff;font-weight:700;font-size:12px;text-align:left;white-space:nowrap}
+.ss-adm-table thead th:last-child{text-align:center}
+.ss-adm-table tbody tr{border-bottom:1px solid #f1f5f9;transition:background .12s}
+.ss-adm-table tbody tr:last-child{border-bottom:none}
+.ss-adm-table tbody tr:hover{background:#f8faff}
+.ss-adm-td{padding:11px 16px;font-size:13px;vertical-align:middle}
+.ss-adm-id{font-family:monospace;font-size:12px;color:#6b7280}
+.ss-adm-name{font-weight:700;color:#0b2540}
+.ss-adm-dept,.ss-adm-pos{color:#4b5563}
+.ss-adm-status{text-align:center}
+.ss-adm-action{text-align:center;white-space:nowrap;width:1%}
+.ss-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+.ss-badge-ok{background:#dcfce7;color:#166534}
+.ss-badge-none{background:#f1f5f9;color:#94a3b8}
+.ss-adm-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:7px;font-size:12px;font-weight:600;text-decoration:none;transition:opacity .15s}
+.ss-adm-btn:hover{opacity:.82}
+.ss-adm-btn-edit{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+.ss-adm-btn-export{background:#f0fdf4;color:#16a34a;border:1px solid #86efac}
 </style>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-    <div style="font-size:13px;color:#64748b;">全 <strong style="color:#1e293b;">${employees.length}</strong> 名の従業員スキルシートを管理します。</div>
-</div>
-
-<div style="overflow-x:auto;">
-<table class="adm-table">
-    <thead>
-        <tr>
-            <th>社員番号</th>
-            <th>氏名</th>
-            <th>部署</th>
-            <th>職位</th>
-            <th style="text-align:center;">ステータス</th>
-            <th style="text-align:center;">操作</th>
-        </tr>
-    </thead>
-    <tbody>
-        ${rows || '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8;">従業員が登録されていません</td></tr>'}
-    </tbody>
-</table>
+<div class="ss-adm-page">
+    <div class="ss-adm-header">
+        <div class="ss-adm-title">📋 スキルシート管理</div>
+        <div class="ss-adm-sub">全 <strong>${employees.length}</strong> 名の従業員スキルシートを管理します</div>
+    </div>
+    <div class="ss-adm-wrap">
+        <table class="ss-adm-table">
+            <thead>
+                <tr>
+                    <th>社員番号</th>
+                    <th>氏名</th>
+                    <th>部署</th>
+                    <th>職位</th>
+                    <th style="text-align:center">ステータス</th>
+                    <th style="text-align:center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows || '<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px">従業員が登録されていません</td></tr>'}
+            </tbody>
+        </table>
+    </div>
 </div>`;
 }
 
@@ -610,28 +631,36 @@ function buildEditPage(emp, sheet, req, isAdminView = false) {
 .ss-task-chk { display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#374151;cursor:pointer;line-height:1; }
 .ss-task-chk input[type="checkbox"] { margin:0;flex-shrink:0;cursor:pointer;vertical-align:middle; }
 .ss-save-bar { position:sticky;bottom:0;background:#fff;border-top:1px solid #e2e8f0;padding:14px 0;margin-top:10px;display:flex;gap:12px;z-index:10; }
+.ss-page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+.ss-page-header-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ss-page-title{font-size:20px;font-weight:800;color:#0b2540;margin:0}
+.ss-page-meta{font-size:13px;color:#6b7280;margin:0;display:flex;gap:12px;flex-wrap:wrap}
+.ss-page-meta span{display:inline-flex;align-items:center;gap:5px}
+.ss-back-btn{display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;text-decoration:none;transition:background .12s}
+.ss-back-btn:hover{background:#e2e8f0}
+.ss-export-btn{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(90deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13.5px;font-weight:600;text-decoration:none;box-shadow:0 2px 6px rgba(22,163,74,.25);transition:opacity .15s}
+.ss-export-btn:hover{opacity:.88}
+.ss-alert-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:9px;padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:9px;color:#166534;font-size:13.5px}
 </style>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        ${backHref ? `
-        <a href="${backHref}"
-           style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-           <i class="fa-solid fa-arrow-left"></i> 一覧に戻る
-        </a>` : ''}
-        <div style="font-size:13px;color:#64748b;">氏名：<strong style="color:#1e293b;">${emp.name}</strong>　部署：<strong style="color:#1e293b;">${emp.department}</strong></div>
+<div class="ss-page-header">
+    <div class="ss-page-header-left">
+        ${backHref ? `<a href="${backHref}" class="ss-back-btn"><i class="fa-solid fa-arrow-left"></i> 一覧に戻る</a>` : ''}
+        <div>
+            <p class="ss-page-title">📄 スキルシート編集</p>
+            <p class="ss-page-meta">
+                <span><i class="fa-solid fa-user" style="color:#3b82f6"></i><strong>${emp.name}</strong></span>
+                <span><i class="fa-solid fa-building" style="color:#6b7280"></i>${emp.department || '—'}</span>
+                <span><i class="fa-solid fa-briefcase" style="color:#6b7280"></i>${emp.position || '—'}</span>
+            </p>
+        </div>
     </div>
-    <a href="${exportHref}"
-        style="background:linear-gradient(90deg,#16a34a,#22c55e);color:#fff;border:none;padding:10px 20px;border-radius:7px;font-size:13.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:7px;box-shadow:0 2px 6px rgba(22,163,74,.25);"
-        onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+    <a href="${exportHref}" class="ss-export-btn">
         <i class="fa-solid fa-file-excel"></i> Excelで出力
     </a>
 </div>
 
-${saved ? `
-<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:9px;color:#166534;font-size:13.5px;">
-    <i class="fa-solid fa-circle-check"></i> 保存しました。
-</div>` : ''}
+${saved ? `<div class="ss-alert-ok"><i class="fa-solid fa-circle-check"></i> 保存しました。</div>` : ''}
 
 <form method="POST" action="${saveAction}" id="ssForm">
 
