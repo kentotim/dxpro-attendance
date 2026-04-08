@@ -183,7 +183,7 @@ router.get('/hr', requireLogin, async (req, res) => {
                 <!-- ウェルカムバナー（本人データ） -->
                 <div class="hr-welcome">
                     <div>
-                        <div class="hr-welcome-title">👋 ${escapeHtml(employee.name)} さん、こんにちは</div>
+                        <div class="hr-welcome-title"> ${escapeHtml(employee.name)} さん、こんにちは</div>
                         <div class="hr-welcome-sub">${escapeHtml(employee.department||'—')} / ${escapeHtml(employee.position||'—')} ｜ 社員ID: ${escapeHtml(employee.employeeId||'—')}</div>
                     </div>
                     <div class="hr-welcome-meta">

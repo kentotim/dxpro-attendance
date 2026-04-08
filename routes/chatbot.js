@@ -62,7 +62,7 @@ async function generateReply(intent, userId, employee, originalText, sessionCont
         switch (intent) {
 
         case 'greeting': return {
-            text: 'こんにちは、**' + employee.name + '** さん！👋\n\n' +
+            text: 'こんにちは、**' + employee.name + '** さん！\n\n' +
                   'わたしは **DXPRO AIアシスタント** です。\n\n' +
                   '📅 **勤怠** — 今日の打刻・今月のサマリー・残業・遅刻\n' +
                   '🎯 **目標** — 進捗確認・期限アラート・承認状況\n' +
