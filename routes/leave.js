@@ -420,7 +420,7 @@ router.get('/admin/leave-requests', requireLogin, isAdmin, async (req, res) => {
             <div style="max-width:900px;margin:0 auto">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
                     <h3 style="margin:0">承認待ち申請一覧</h3>
-                    <a href="/admin/leave-balance" style="padding:9px 20px;background:#0b5fff;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">残日数管理</a>
+                    <a href="/admin/leave-balance" style="padding:9px 20px;background:#0b5fff;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;margin-top:10px">残日数管理</a>
                 </div>
                 ${requests.length === 0 ? `<div style="background:#f0fdf4;border-radius:12px;padding:24px;text-align:center;color:#16a34a;font-weight:600">承認待ちの申請はありません ✅</div>` : ''}
                 ${requests.map(r => `

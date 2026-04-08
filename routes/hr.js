@@ -1668,7 +1668,7 @@ router.get('/hr/daily-report', requireLogin, async (req, res) => {
             <div style="max-width:960px;margin:0 auto">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                     <h2 style="margin:0;font-size:22px;color:#0b2540">日報一覧</h2>
-                    <a href="/hr/daily-report/new" style="padding:9px 20px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">＋ 日報を投稿</a>
+                    <a href="/hr/daily-report/new" style="padding:9px 20px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;margin-top:10px">＋ 日報を投稿</a>
                 </div>
 
                 <form method="GET" action="/hr/daily-report" class="filters-row">

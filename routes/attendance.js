@@ -114,7 +114,7 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
 .tag--absent{background:#9ca3af}
 .note-cell{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.aside .panel{position:sticky;top:20px}
+.aside{display:flex;flex-direction:column;gap:12px;align-self:start}
 .quick-links{display:flex;flex-direction:column;gap:8px}
 .link-card{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfdff);cursor:pointer;border:1px solid rgba(12,20,40,0.03)}
 .link-card small{color:var(--muted)}
@@ -327,7 +327,7 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
         </div>
       </div>
 
-      <div class="panel" style="margin-top:12px">
+      <div class="panel">
         <h4 style="margin-top:0">ヘルプ & ポリシー</h4>
         <p style="color:var(--muted);font-size:13px">打刻に関する問い合わせや就業規則は人事までご連絡ください。</p>
         <a href="https://dxpro-sol.com" target="_blank" class="btn btn--ghost" style="width:100%;margin-top:8px">社内ポータル</a>
