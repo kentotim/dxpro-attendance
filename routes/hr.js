@@ -4802,8 +4802,9 @@ let cAttachFiles = [];
 
 // input[onchange] から呼ばれる
 function handleCFileChange(input) {
-    addCFiles(input.files);
+    const files = Array.from(input.files); // FileList を配列にコピーしてから
     input.value = ''; // 同じファイルを再選択できるようにリセット
+    addCFiles(files);
 }
 
 // ドロップから呼ばれる
