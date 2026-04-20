@@ -1270,7 +1270,7 @@ router.get('/admin/pretest/:id', isAdmin, async (req, res) => {
         const per = it.perQuestionScores || {};
 
         const rows = [];
-        const qCount = (it.lang && it.lang !== 'common') ? 30 : 40;
+        const qCount = 40; // 選択式30問（Q1-Q30）+ 記述式10問（Q31-Q40）= 40問
         for (let i=1;i<=qCount;i++){
             const k = 'q'+i;
             const ans = escapeHtml((answers[k]||'').toString());
