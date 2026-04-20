@@ -1,0 +1,99 @@
+{
+  "nav": {
+    "home": "Home",
+    "attendance": "Attendance",
+    "daily_report": "Daily Reports",
+    "goals": "Goal Management",
+    "skillsheet": "Skill Sheet",
+    "hr": "HR Management",
+    "payroll": "Payslip",
+    "leave_apply": "Leave Request",
+    "leave_history": "Leave History",
+    "overtime": "Overtime Request",
+    "board": "Bulletin Board",
+    "rules": "Company Rules",
+    "education": "Education",
+    "edu_site": "Education Site",
+    "edu_test": "Take Test",
+    "edu_answers": "Model Answers",
+    "edu_admin": "Test List (Admin)",
+    "links": "Links",
+    "admin_menu": "Admin Menu",
+    "admin_top": "Admin Dashboard",
+    "admin_payroll": "Payroll Management",
+    "admin_leave": "Leave Approval",
+    "admin_overtime": "Overtime Management",
+    "admin_leave_balance": "Leave Allocation",
+    "admin_add_employee": "Add Employee",
+    "admin_users": "User Permissions",
+    "change_password": "Change Password",
+    "logout": "Logout",
+    "main_section": "Main",
+    "work_section": "Work & Attendance",
+    "hr_section": "HR & Payroll",
+    "info_section": "Information",
+    "edu_section": "Education"
+  },
+  "topbar": {
+    "admin_badge": "Admin",
+    "notifications": "Notifications",
+    "mark_all_read": "Mark all as read",
+    "see_all": "See all",
+    "loading": "Loading..."
+  },
+  "role": {
+    "admin": "Administrator",
+    "employee": "Employee"
+  },
+  "lang": {
+    "select": "Language",
+    "ja": "日本語",
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "attendance": {
+    "checkin": "Check In",
+    "checkout": "Check Out",
+    "gps_checkin": "GPS Check In",
+    "gps_checkout": "GPS Check Out",
+    "status": "Status",
+    "working": "Working",
+    "off": "Not checked in",
+    "date": "Date",
+    "time": "Time"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "submit": "Submit",
+    "search": "Search",
+    "close": "Close",
+    "confirm": "Confirm",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "no_data": "No data available",
+    "required": "Required",
+    "optional": "Optional"
+  },
+  "dashboard": {
+    "greeting_morning": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening",
+    "today": "Today",
+    "this_week": "This Week",
+    "this_month": "This Month"
+  },
+  "leave": {
+    "apply": "Apply",
+    "status_pending": "Pending",
+    "status_approved": "Approved",
+    "status_rejected": "Rejected",
+    "type_paid": "Paid Leave",
+    "type_sick": "Sick Leave",
+    "type_other": "Other"
+  }
+}

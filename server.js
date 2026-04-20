@@ -71,6 +71,10 @@ app.use('/', require('./routes/skillsheet'));
 app.use('/', require('./routes/notifications').router);
 app.use('/', require('./routes/overtime'));
 app.use('/', require('./routes/locations'));
+app.use('/', require('./routes/lang'));
+app.use('/', require('./routes/integrations'));
+app.use('/', require('./routes/organization'));
+app.use('/', require('./routes/payroll_admin'));   // #20 給与計算エンジン
 
 // ── グローバルエラーハンドラー（500エラーでプロセスをクラッシュさせない） ─
 app.use((err, req, res, next) => {

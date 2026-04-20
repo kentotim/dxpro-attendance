@@ -5309,4 +5309,217 @@ router.post(
   },
 );
 
+// ─────────────────────────────────────────────────────────────────────
+// Issue #16: 日報 × AI要約 ページ & API
+// ─────────────────────────────────────────────────────────────────────
+const { sendSummary } = require('../lib/dailyReportSummary');
+
+// 管理者向け日報AI要約ページ
+router.get('/hr/daily-report/summary', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/');
+    const { buildPageShell } = require('../lib/renderPage');
+    const moment = require('moment-timezone');
+    const employee = await Employee.findOne({ userId: req.session.userId }).lean();
+
+    const content = `
+    <style>
+        .summary-wrap { max-width:900px;margin:0 auto;padding:28px 16px }
+        .summary-hero { background:linear-gradient(135deg,#0f6fff,#6366f1);border-radius:14px;padding:28px 32px;color:#fff;margin-bottom:28px }
+        .summary-hero h1 { margin:0;font-size:24px }
+        .summary-hero p { margin:8px 0 0;opacity:.85;font-size:14px }
+        .summary-card { background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06) }
+        .summary-card h2 { margin:0 0 16px;font-size:17px;display:flex;align-items:center;gap:8px }
+        .period-select { display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px }
+        .period-btn { padding:8px 18px;border:2px solid #0f6fff;border-radius:8px;background:#fff;color:#0f6fff;font-weight:700;cursor:pointer;font-size:13px }
+        .period-btn.active { background:#0f6fff;color:#fff }
+        .ai-output { white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;font-size:14px;line-height:1.8;min-height:120px;color:#334155 }
+        .send-btn { padding:10px 24px;background:#0f6fff;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;margin-top:12px }
+        .send-btn:disabled { background:#94a3b8;cursor:not-allowed }
+        .status-msg { margin-top:10px;font-size:13px }
+    </style>
+    <div class="summary-wrap">
+        <div class="summary-hero">
+            <h1>🤖 日報 AI要約ダッシュボード</h1>
+            <p>OpenAI GPT-4o-miniを使って日報を自動要約します。週次は毎週月曜8時、月次は毎月1日8時に自動メール送信されます。</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>📅 手動でAI要約を生成・送信</h2>
+            <div class="period-select">
+                <button class="period-btn active" onclick="setPeriod('weekly',this)">週次（直近7日）</button>
+                <button class="period-btn" onclick="setPeriod('monthly',this)">月次（先月）</button>
+            </div>
+            <div id="aiOutput" class="ai-output" style="margin-bottom:12px">「生成」ボタンを押すとAI要約が表示されます。</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="send-btn" onclick="generateSummary()" id="genBtn">🤖 AI要約を生成</button>
+                <button class="send-btn" onclick="sendEmail()" id="sendBtn" style="background:#10b981">📧 管理者にメール送信</button>
+            </div>
+            <div id="statusMsg" class="status-msg"></div>
+        </div>
+
+        <div class="summary-card">
+            <h2>⚙️ 自動送信スケジュール</h2>
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+                <tr style="border-bottom:1px solid #e2e8f0">
+                    <th style="text-align:left;padding:8px 0;color:#64748b">タイプ</th>
+                    <th style="text-align:left;padding:8px 0;color:#64748b">スケジュール</th>
+                    <th style="text-align:left;padding:8px 0;color:#64748b">送信先</th>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9">
+                    <td style="padding:10px 0">週次サマリー</td>
+                    <td>毎週月曜日 08:00</td>
+                    <td>管理者・マネージャー全員</td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 0">月次サマリー</td>
+                    <td>毎月1日 08:00</td>
+                    <td>管理者・マネージャー全員</td>
+                </tr>
+            </table>
+            <p style="margin-top:12px;font-size:13px;color:#64748b">
+                ⚠️ AI要約はOpenAI APIキー（OPENAI_API_KEY）が設定されている場合のみ有効です。
+                未設定の場合はルールベースのサマリーが送信されます。
+            </p>
+        </div>
+    </div>
+    <script>
+    let currentPeriod = 'weekly';
+    function setPeriod(period, btn) {
+        currentPeriod = period;
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('aiOutput').textContent = '「生成」ボタンを押すとAI要約が表示されます。';
+    }
+    async function generateSummary() {
+        const btn = document.getElementById('genBtn');
+        const out = document.getElementById('aiOutput');
+        btn.disabled = true; btn.textContent = '⏳ 生成中...';
+        out.textContent = 'AIが日報を解析中です。しばらくお待ちください...';
+        try {
+            const r = await fetch('/hr/daily-report/api/summarize', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ period: currentPeriod, sendEmail: false })
+            });
+            const d = await r.json();
+            if (d.summary) {
+                out.textContent = d.summary;
+                document.getElementById('statusMsg').textContent = '✅ 要約生成完了（' + d.count + '件の日報を分析）';
+            } else {
+                out.textContent = d.error || 'エラーが発生しました';
+            }
+        } catch(e) {
+            out.textContent = 'エラー: ' + e.message;
+        }
+        btn.disabled = false; btn.textContent = '🤖 AI要約を生成';
+    }
+    async function sendEmail() {
+        const btn = document.getElementById('sendBtn');
+        btn.disabled = true; btn.textContent = '⏳ 送信中...';
+        document.getElementById('statusMsg').textContent = '';
+        try {
+            const r = await fetch('/hr/daily-report/api/summarize', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ period: currentPeriod, sendEmail: true })
+            });
+            const d = await r.json();
+            if (d.ok) {
+                document.getElementById('statusMsg').innerHTML = '<span style="color:#10b981">✅ ' + d.message + '</span>';
+            } else {
+                document.getElementById('statusMsg').innerHTML = '<span style="color:#ef4444">❌ ' + (d.error||'エラー') + '</span>';
+            }
+        } catch(e) {
+            document.getElementById('statusMsg').innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
+        }
+        btn.disabled = false; btn.textContent = '📧 管理者にメール送信';
+    }
+    </script>`;
+
+    res.send(buildPageShell({ title: '日報AI要約', currentPath: '/hr/daily-report/summary', employee, isAdmin: true }, content));
+});
+
+// 手動AI要約 API（プレビュー生成 & メール送信）
+router.post('/hr/daily-report/api/summarize', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ error: '管理者のみ' });
+    try {
+        const { period = 'weekly', sendEmail: doSend = false } = req.body;
+        const moment = require('moment-timezone');
+        const { summarizeReports: _summarize } = require('../lib/dailyReportSummary');
+        const { User } = require('../models');
+
+        const now = moment().tz('Asia/Tokyo');
+        let from, to, periodLabel;
+        if (period === 'monthly') {
+            from = now.clone().subtract(1, 'month').startOf('month').toDate();
+            to   = now.clone().subtract(1, 'month').endOf('month').toDate();
+            periodLabel = now.clone().subtract(1, 'month').format('YYYY年M月') + ' 月次';
+        } else {
+            from = now.clone().subtract(7, 'days').startOf('day').toDate();
+            to   = now.clone().endOf('day').toDate();
+            periodLabel = now.clone().subtract(7, 'days').format('M/D') + '〜' + now.format('M/D') + ' 週次';
+        }
+
+        const reports = await DailyReport.find({ reportDate: { $gte: from, $lte: to } }).lean();
+        const employees = await Employee.find().lean();
+        const empMap = Object.fromEntries(employees.map(e => [e.userId.toString(), e]));
+        for (const r of reports) r._emp = empMap[r.userId?.toString()] || {};
+
+        if (reports.length === 0) {
+            return res.json({ summary: '対象期間に日報がありません。', count: 0 });
+        }
+
+        // summarizeReports は内部関数なので sendSummary経由で呼ぶ代わりに直接再実装
+        const { sendSummary: _send } = require('../lib/dailyReportSummary');
+
+        if (doSend) {
+            const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).lean();
+            const emails = admins.map(u => u.email).filter(Boolean);
+            await _send(period, emails);
+            return res.json({ ok: true, message: `${periodLabel}サマリーを ${emails.length}名に送信しました`, count: reports.length });
+        }
+
+        // プレビュー生成のみ（openai直接呼び出し）
+        const { default: OpenAI } = require('openai');
+        const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        let summary;
+        if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+            summary = `[APIキー未設定] ${periodLabel}の日報 ${reports.length}件が対象です。\n` +
+                reports.slice(0, 5).map(r => `• ${(r._emp||{}).name||'不明'} (${moment(r.reportDate).format('M/D')}): ${(r.content||'').slice(0,50)}...`).join('\n');
+        } else {
+            const texts = reports.map(r => `【${(r._emp||{}).name||'不明'} / ${moment(r.reportDate).format('M/D')}】\n${r.content||''}`).join('\n\n---\n\n');
+            const resp = await ai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: `以下の${periodLabel}日報を管理者向けに要約してください（日本語、500文字以内）：\n\n${texts.slice(0, 6000)}` }],
+                max_tokens: 700, temperature: 0.5
+            });
+            summary = resp.choices[0].message.content;
+        }
+        res.json({ summary, count: reports.length });
+    } catch (e) {
+        console.error('[DailySummary API]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// 給与明細「確認しました」ボタン（Issue #20）
+// ─────────────────────────────────────────────────────────────
+router.post('/hr/payroll/:id/confirm', requireLogin, async (req, res) => {
+    try {
+        const employee = await Employee.findOne({ userId: req.session.userId });
+        const slip = await PayrollSlip.findById(req.params.id);
+        if (!slip || String(slip.employeeId) !== String(employee._id)) {
+            return res.status(403).json({ error: '権限がありません' });
+        }
+        slip.confirmedAt = new Date();
+        slip.confirmedBy = req.session.userId;
+        await slip.save();
+        res.json({ ok: true, confirmedAt: slip.confirmedAt });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;
+

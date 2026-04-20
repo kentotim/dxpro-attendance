@@ -62,6 +62,36 @@ router.get('/admin', requireLogin, isAdmin, async (req, res) => {
                         <div class="admin-desc">合否ライン・採用担当への自動レポートメール送信を設定します。</div>
                     </a>
 
+                    <a class="admin-card" href="/skillsheet/map">
+                        <div class="admin-head"><div class="admin-icon">📊</div><div class="admin-title">スキルマップ</div></div>
+                        <div class="admin-desc">社員のスキルをレーダーチャート・チーム全体のスキル分布を可視化します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/hr/daily-report/summary">
+                        <div class="admin-head"><div class="admin-icon">🤖</div><div class="admin-title">日報AI要約</div></div>
+                        <div class="admin-desc">GPT-4o-miniで日報を週次・月次で自動要約。管理者へメール送信できます。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/integrations">
+                        <div class="admin-head"><div class="admin-icon">🔌</div><div class="admin-title">外部API連携</div></div>
+                        <div class="admin-desc">Slack・LINE WORKS・freee・マネーフォワードとのデータ連携を設定します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/departments">
+                        <div class="admin-head"><div class="admin-icon">🏢</div><div class="admin-title">部署管理</div></div>
+                        <div class="admin-desc">部署の階層構造・部門長を管理します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/organization/roles">
+                        <div class="admin-head"><div class="admin-icon">👥</div><div class="admin-title">ロール・人事異動</div></div>
+                        <div class="admin-desc">社員のロール（部門長・チームリーダー）・兼務・上司を設定します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/payroll/master">
+                        <div class="admin-head"><div class="admin-icon">💴</div><div class="admin-title">給与計算エンジン</div></div>
+                        <div class="admin-desc">給与マスタ設定・月次給与計算バッチ・PDF明細発行を行います。</div>
+                    </a>
+
                     <a class="admin-card" href="/admin/register-employee">
                         <div class="admin-head"><div class="admin-icon">👥</div><div class="admin-title">従業員登録</div></div>
                         <div class="admin-desc">新しい社員アカウント・従業員情報を作成します。</div>
@@ -1772,3 +1802,12 @@ router.post('/admin/users/reset-password', requireLogin, isAdmin, async (req, re
 });
 
 module.exports = router;
+// ── 社員一覧JSON API（スキルマップセレクト用）──
+router.get('/admin/api/employees', async (req, res) => {
+    if (!req.session || !req.session.isAdmin) return res.status(403).json([]);
+    try {
+        const { Employee: EmpModel } = require('../models');
+        const emps = await EmpModel.find().select('_id name department position').lean();
+        res.json(emps);
+    } catch (e) { res.status(500).json([]); }
+});

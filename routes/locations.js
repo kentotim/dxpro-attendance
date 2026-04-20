@@ -220,7 +220,12 @@ async function deleteLocation(id) {
 </script>
 `;
 
-    res.send(buildPageShell('GPS承認済み場所管理', content, req) + pageFooter());
+    res.send(buildPageShell({
+        title: 'GPS承認済み場所管理',
+        currentPath: '/locations',
+        employee: req.session.employee,
+        isAdmin: !!req.session.isAdmin
+    }) + content + pageFooter());
 });
 
 // ────────────────────────────────
