@@ -595,7 +595,7 @@ router.get('/pretest/answers/common', requireLogin, (req, res) => {
 });
 
 // Language-specific interview + script pretest pages（候補者は未ログインのためrequireLoginなし）
-// 新形式: 選択式20問（Q1-Q20）+ 記述式10問（Q21-Q30）= 満点30点
+// 新形式: 選択式30問（Q1-Q30）+ 記述式10問（Q31-Q40）= 満点40点
 router.get('/pretest/:lang', (req, res) => {
     const lang = (req.params.lang || '').toLowerCase();
     const { LANG_TESTS } = require('../lib/pretestQuestions');
@@ -606,8 +606,8 @@ router.get('/pretest/:lang', (req, res) => {
     const diffLabel = { VE: '非常に易しい', EM: '中間', H: '難しい', VH: '非常に難しい' };
     const diffColor = { VE: '#22c55e', EM: '#3b82f6', H: '#f59e0b', VH: '#ef4444' };
 
-    // 選択式 Q1-Q20
-    const mcHtml = conf.mc.map((item, idx) => {
+    // 選択式 Q1-Q30
+    const mcCards = conf.mc.map((item, idx) => {
         const qNum = idx + 1;
         const badge = `<span style="font-size:10px;font-weight:700;background:${diffColor[item.diff]}22;color:${diffColor[item.diff]};border:1px solid ${diffColor[item.diff]}44;border-radius:999px;padding:1px 8px;margin-left:8px">${diffLabel[item.diff]}</span>`;
         const opts = item.opts.map(o => {
@@ -619,17 +619,22 @@ router.get('/pretest/:lang', (req, res) => {
   <div class="pt-qtitle"><span class="pt-qnum">Q${qNum}</span>${badge}<div class="pt-qtext">${escapeHtml(item.q)}</div></div>
   <div class="pt-opts">${opts}</div>
 </div>`;
-    }).join('');
+    });
+    const mcHtml1 = mcCards.slice(0, 10).join('');
+    const mcHtml2 = mcCards.slice(10, 20).join('');
+    const mcHtml3 = mcCards.slice(20, 30).join('');
 
-    // 記述式 Q21-Q30
-    const essayHtml = conf.essay.map((item, idx) => {
-        const qNum = idx + 21;
+    // 記述式 Q31-Q40
+    const essayCards = conf.essay.map((item, idx) => {
+        const qNum = idx + 31;
         return `
 <div class="pt-qcard" id="ptcard-q${qNum}">
   <div class="pt-qtitle"><span class="pt-qnum code">Q${qNum}</span><span style="font-size:10px;font-weight:700;background:#7c3aed22;color:#7c3aed;border:1px solid #7c3aed44;border-radius:999px;padding:1px 8px;margin-left:8px">記述式</span><div class="pt-qtext">${escapeHtml(item.q)}</div></div>
   <textarea name="q${qNum}" id="pt-q${qNum}" placeholder="簡潔に説明してください" style="width:100%;min-height:110px;padding:10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.9rem;resize:vertical;box-sizing:border-box" oninput="ptMarkAnswered(${qNum},this)"></textarea>
 </div>`;
-    }).join('');
+    });
+    const essayHtml1 = essayCards.slice(0, 5).join('');
+    const essayHtml2 = essayCards.slice(5, 10).join('');
 
     renderPage(req, res, conf.title, conf.title, `
 <style>
@@ -678,25 +683,26 @@ router.get('/pretest/:lang', (req, res) => {
   <h2><i class="fa-solid fa-graduation-cap"></i> ${escapeHtml(conf.title)}</h2>
   <p>${escapeHtml(conf.intro)}</p>
   <div class="pt-meta">
-    <div class="pt-meta-item"><i class="fa-solid fa-check-square"></i> 選択式 20問（各1点）</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-check-square"></i> 選択式 30問（各1点）</div>
     <div class="pt-meta-item"><i class="fa-solid fa-pen"></i> 記述式 10問（各1点）</div>
-    <div class="pt-meta-item"><i class="fa-solid fa-star"></i> 満点 30点</div>
-    <div class="pt-meta-item"><i class="fa-solid fa-clock"></i> 目安 60分</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-star"></i> 満点 40点</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-clock"></i> 目安 75分</div>
   </div>
 </div>
 
 <div class="pt-timer-box" id="pt-timer-lang"><i class="fa-solid fa-stopwatch"></i> <span id="pt-timer-lang-display">00:00:00</span></div>
 <div class="pt-progress-wrap">
   <div class="pt-progress-bar-bg"><div class="pt-progress-bar-fill" id="pt-lang-pbar" style="width:0%"></div></div>
-  <div class="pt-progress-label" id="pt-lang-pcount">0 / 30</div>
+  <div class="pt-progress-label" id="pt-lang-pcount">0 / 40</div>
 </div>
 
 <div class="pt-steps">
   <button class="pt-step-btn active" id="step-lang-info-btn" onclick="ptLangSection('info')">📋 受験者情報</button>
   <button class="pt-step-btn" id="step-lang-mc1-btn" onclick="ptLangSection('mc1')">✅ 選択式 Q1〜Q10</button>
   <button class="pt-step-btn" id="step-lang-mc2-btn" onclick="ptLangSection('mc2')">✅ 選択式 Q11〜Q20</button>
-  <button class="pt-step-btn" id="step-lang-es1-btn" onclick="ptLangSection('es1')">✏️ 記述式 Q21〜Q25</button>
-  <button class="pt-step-btn" id="step-lang-es2-btn" onclick="ptLangSection('es2')">✏️ 記述式 Q26〜Q30</button>
+  <button class="pt-step-btn" id="step-lang-mc3-btn" onclick="ptLangSection('mc3')">✅ 選択式 Q21〜Q30</button>
+  <button class="pt-step-btn" id="step-lang-es1-btn" onclick="ptLangSection('es1')">✏️ 記述式 Q31〜Q35</button>
+  <button class="pt-step-btn" id="step-lang-es2-btn" onclick="ptLangSection('es2')">✏️ 記述式 Q36〜Q40</button>
   <button class="pt-step-btn" id="step-lang-sub-btn" onclick="ptLangSection('sub')">🚀 確認・送信</button>
 </div>
 
@@ -714,7 +720,7 @@ router.get('/pretest/:lang', (req, res) => {
 <!-- 選択式 Q1〜Q10 -->
 <div class="pt-section" id="pt-lang-sec-mc1">
   <div class="pt-section-hdr"><i class="fa-solid fa-check-square"></i> 選択式（Q1〜Q10）― 最も適切な選択肢を1つ選んでください</div>
-  ${mcHtml.split('</div>').slice(0, 10).join('</div>') + '</div>'}
+  ${mcHtml1}
   <div style="display:flex;justify-content:space-between;margin-top:12px">
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('info')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc2')" style="padding:8px 20px;font-size:.88rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
@@ -724,27 +730,37 @@ router.get('/pretest/:lang', (req, res) => {
 <!-- 選択式 Q11〜Q20 -->
 <div class="pt-section" id="pt-lang-sec-mc2">
   <div class="pt-section-hdr"><i class="fa-solid fa-check-square"></i> 選択式（Q11〜Q20）― 最も適切な選択肢を1つ選んでください</div>
-  ${(() => { const parts = mcHtml.split('<div class="pt-qcard"'); return parts.slice(11).map((p,i)=> '<div class="pt-qcard"' + p).join(''); })()}
+  ${mcHtml2}
   <div style="display:flex;justify-content:space-between;margin-top:12px">
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc1')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc3')" style="padding:8px 20px;font-size:.88rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- 選択式 Q21〜Q30 -->
+<div class="pt-section" id="pt-lang-sec-mc3">
+  <div class="pt-section-hdr"><i class="fa-solid fa-check-square"></i> 選択式（Q21〜Q30）― 最も適切な選択肢を1つ選んでください</div>
+  ${mcHtml3}
+  <div style="display:flex;justify-content:space-between;margin-top:12px">
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc2')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('es1')" style="padding:8px 20px;font-size:.88rem">次へ：記述式 <i class="fa-solid fa-arrow-right"></i></button>
   </div>
 </div>
 
-<!-- 記述式 Q21〜Q25 -->
+<!-- 記述式 Q31〜Q35 -->
 <div class="pt-section" id="pt-lang-sec-es1">
-  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q21〜Q25）― 簡潔に述べてください</div>
-  ${(() => { const parts = essayHtml.split('<div class="pt-qcard"'); return parts.slice(1,6).map(p=>'<div class="pt-qcard"'+p).join(''); })()}
+  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q31〜Q35）― 簡潔に述べてください</div>
+  ${essayHtml1}
   <div style="display:flex;justify-content:space-between;margin-top:12px">
-    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc2')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc3')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('es2')" style="padding:8px 20px;font-size:.88rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
   </div>
 </div>
 
-<!-- 記述式 Q26〜Q30 -->
+<!-- 記述式 Q36〜Q40 -->
 <div class="pt-section" id="pt-lang-sec-es2">
-  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q26〜Q30）― 簡潔に述べてください</div>
-  ${(() => { const parts = essayHtml.split('<div class="pt-qcard"'); return parts.slice(6).map(p=>'<div class="pt-qcard"'+p).join(''); })()}
+  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q36〜Q40）― 簡潔に述べてください</div>
+  ${essayHtml2}
   <div style="display:flex;justify-content:space-between;margin-top:12px">
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('es1')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
     <button type="button" class="pt-submit-btn" onclick="ptLangSection('sub')" style="padding:8px 20px;font-size:.88rem">確認・送信へ <i class="fa-solid fa-arrow-right"></i></button>
@@ -779,7 +795,7 @@ router.get('/pretest/:lang', (req, res) => {
         if(s>5400) timerBox.classList.add('warn'); // 90分警告
     },1000);
 
-    const TOTAL=30;
+    const TOTAL=40;
     const answered=new Set();
     window.ptMarkAnswered=function(n,el){
         if(el.value||el.value===0) answered.add(n);
@@ -793,7 +809,7 @@ router.get('/pretest/:lang', (req, res) => {
         updateSummary();
     };
 
-    const sections=['info','mc1','mc2','es1','es2','sub'];
+    const sections=['info','mc1','mc2','mc3','es1','es2','sub'];
     window.ptLangSection=function(sec){
         sections.forEach(s=>{
             const el=document.getElementById('pt-lang-sec-'+s);
@@ -809,18 +825,18 @@ router.get('/pretest/:lang', (req, res) => {
         const el=document.getElementById('pt-lang-check-summary');
         if(!el) return;
         const mc=[];const es=[];
-        for(let i=1;i<=20;i++){
+        for(let i=1;i<=30;i++){
             const radios=document.querySelectorAll('input[name="q'+i+'"]');
             let sel='未回答';
             radios.forEach(r=>{ if(r.checked) sel='選択: '+r.value; });
             mc.push('Q'+i+': '+sel);
         }
-        for(let i=21;i<=30;i++){
+        for(let i=31;i<=40;i++){
             const ta=document.getElementById('pt-q'+i);
             const val=ta&&ta.value?ta.value.trim():'';
             es.push('Q'+i+': '+(val?val.substring(0,30)+(val.length>30?'…':''):'未回答'));
         }
-        el.innerHTML='<b>選択式（Q1〜Q20）</b><br>'+mc.join(' ／ ')+'<br><br><b>記述式（Q21〜Q30）</b><br>'+es.join('<br>');
+        el.innerHTML='<b>選択式（Q1〜Q30）</b><br>'+mc.join(' ／ ')+'<br><br><b>記述式（Q31〜Q40）</b><br>'+es.join('<br>');
     }
 
     document.getElementById('pt-lang-submit-btn').addEventListener('click',async function(){
@@ -832,11 +848,11 @@ router.get('/pretest/:lang', (req, res) => {
         const durationSeconds=Math.round((endedAt-startedAt)/1000);
         clearInterval(_ti);
         const answers={};
-        for(let i=1;i<=20;i++){
+        for(let i=1;i<=30;i++){
             const radios=document.querySelectorAll('input[name="q'+i+'"]:checked');
             answers['q'+i]=radios.length?radios[0].value:'';
         }
-        for(let i=21;i<=30;i++){
+        for(let i=31;i<=40;i++){
             const ta=document.getElementById('pt-q'+i);
             answers['q'+i]=ta?ta.value:'';
         }
@@ -866,6 +882,7 @@ router.get('/pretest/:lang', (req, res) => {
 </script>
     `);
 });
+
 // 入社前テスト実施ページ（候補者は未ログインのためrequireLoginなし）
 router.get('/pretest', (req, res) => {
     renderPage(req, res, '入社前テスト', '入社前テスト実施', `
