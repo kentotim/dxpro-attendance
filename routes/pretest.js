@@ -3,106 +3,11 @@
 // ==============================
 const router = require('express').Router();
 const moment = require('moment-timezone');
-const { User, Employee, PretestSubmission, PretestConfig } = require('../models');
+const { User, Employee, PretestSubmission } = require('../models');
 const { requireLogin, isAdmin } = require('../middleware/auth');
 const { computePretestScore, escapeHtml } = require('../lib/helpers');
-const { sendMail } = require('../config/mailer');
 const { renderPage } = require('../lib/renderPage');
-const pdf = require('html-pdf');
 
-// ── 採点レポートHTML生成 ─────────────────────────────
-function buildReportHtml(submission, config) {
-    const { name, email, lang, score, total, durationSeconds, createdAt, perQuestionScores } = submission;
-    const pct = total > 0 ? Math.round(score / total * 100) : 0;
-    const passScore = config.usePercent ? (total * config.passPercent / 100) : config.passScore;
-    const passed = score >= passScore;
-    const passLabel = passed ? '✅ 合格' : '❌ 不合格';
-    const passColor = passed ? '#16a34a' : '#dc2626';
-    const dur = durationSeconds ? Math.floor(durationSeconds / 60) + '分' + (durationSeconds % 60) + '秒' : '-';
-
-    const perRows = Object.keys(perQuestionScores || {}).map(k =>
-        `<tr><td style="padding:4px 8px;border:1px solid #e5e7eb">${k.toUpperCase()}</td>
-         <td style="padding:4px 8px;border:1px solid #e5e7eb;text-align:center">${perQuestionScores[k]}</td></tr>`
-    ).join('');
-
-    return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
-<style>
-  body{font-family:'Hiragino Sans','Meiryo',sans-serif;padding:32px;color:#1e293b;font-size:14px}
-  h1{font-size:22px;color:#0f6fff;margin-bottom:4px}
-  .sub{color:#64748b;font-size:13px;margin-bottom:24px}
-  .result-box{border-radius:10px;padding:20px 24px;margin-bottom:24px;background:#f8fafc;border:2px solid ${passColor}}
-  .verdict{font-size:28px;font-weight:800;color:${passColor}}
-  .score{font-size:18px;margin-top:8px}
-  table{border-collapse:collapse;width:100%}
-  th{background:#f1f5f9;padding:8px;border:1px solid #e5e7eb;text-align:left}
-  .info-table td{padding:8px 12px;border-bottom:1px solid #f1f5f9}
-  .info-table td:first-child{font-weight:600;color:#64748b;width:140px}
-  .footer{margin-top:32px;font-size:12px;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:12px}
-</style></head><body>
-<h1>📋 入社前テスト 採点レポート</h1>
-<div class="sub">作成日時：${moment(createdAt).tz('Asia/Tokyo').format('YYYY年MM月DD日 HH:mm')}</div>
-<div class="result-box">
-  <div class="verdict">${passLabel}</div>
-  <div class="score">スコア：<strong>${score} / ${total} 点（${pct}%）</strong></div>
-  <div style="margin-top:8px;color:#64748b">合格ライン：${config.usePercent ? config.passPercent + '%' : config.passScore + '点'}</div>
-</div>
-<table class="info-table" style="margin-bottom:24px">
-  <tr><td>受験者氏名</td><td>${escapeHtml(name)}</td></tr>
-  <tr><td>メールアドレス</td><td>${escapeHtml(email)}</td></tr>
-  <tr><td>選択言語</td><td>${escapeHtml(lang || 'common').toUpperCase()}</td></tr>
-  <tr><td>所要時間</td><td>${dur}</td></tr>
-  <tr><td>受験日時</td><td>${moment(createdAt).tz('Asia/Tokyo').format('YYYY/MM/DD HH:mm')}</td></tr>
-</table>
-${perRows ? `<h3 style="margin-bottom:8px">問題別得点</h3>
-<table><thead><tr><th>問題</th><th style="text-align:center">得点</th></tr></thead>
-<tbody>${perRows}</tbody></table>` : ''}
-<div class="footer">このレポートはDXPRO 入社前テストシステムにより自動生成されました。</div>
-</body></html>`;
-}
-
-// ── 採点完了後のレポート自動送信 ───────────────────────
-async function sendPretestReport(submission) {
-    try {
-        const config = { passPercent: 60, usePercent: true, notifyEmails: [], autoSendReport: false };
-        if (!config.autoSendReport) return;
-        const emails = config.notifyEmails || [];
-        if (emails.length === 0) return;
-
-        const reportHtml = buildReportHtml(submission, config);
-        const pct = submission.total > 0 ? Math.round(submission.score / submission.total * 100) : 0;
-        const passScore = config.usePercent ? (submission.total * config.passPercent / 100) : config.passScore;
-        const passed = submission.score >= passScore;
-
-        const buffer = await new Promise((resolve, reject) => {
-            pdf.create(reportHtml, { format: 'A4', border: '15mm' }).toBuffer((err, buf) => {
-                if (err) return reject(err);
-                resolve(buf);
-            });
-        });
-
-        for (const to of emails) {
-            await sendMail({
-                to,
-                subject: `【入社前テスト】${submission.name} 様 採点レポート（${passed ? '合格' : '不合格'} ${pct}%）`,
-                html: `<p>お疲れ様です。入社前テストの採点レポートをお送りします。</p>
-                       <ul>
-                         <li>受験者：<strong>${escapeHtml(submission.name)}</strong></li>
-                         <li>スコア：<strong>${submission.score} / ${submission.total}点（${pct}%）</strong></li>
-                         <li>判定：<strong style="color:${passed ? '#16a34a' : '#dc2626'}">${passed ? '合格' : '不合格'}</strong></li>
-                       </ul>
-                       <p>詳細はPDFファイルをご確認ください。</p>`,
-                attachments: [{
-                    filename: `pretest_report_${submission.name}_${moment().format('YYYYMMDD')}.pdf`,
-                    content: buffer,
-                    contentType: 'application/pdf'
-                }]
-            });
-        }
-        console.log('[pretest] report sent to', emails);
-    } catch (e) {
-        console.error('[pretest] report send error', e.message);
-    }
-}
 
 router.get('/pretest/answers', requireLogin, (req, res) => {
     const langs = ['common','java','javascript','python','php','csharp','android','swift'];
@@ -993,9 +898,6 @@ router.post('/pretest/submit', async (req, res) => {
         const saved = await doc.save();
         console.log('pretest saved id=', saved._id.toString(), 'doc:', { name: saved.name, email: saved.email, score: saved.score, total: saved.total });
 
-        // 採点レポートを非同期で自動送信（エラーでも応答はブロックしない）
-        sendPretestReport(saved.toObject()).catch(e => console.error('[pretest] bg report error', e.message));
-
         return res.json({ ok: true, saved: true, id: saved._id.toString(), session: { userId: req.session && req.session.userId } });
     } catch (err) {
         console.error('pretest submit save error', err && (err.stack || err.message) || err);
@@ -1121,64 +1023,18 @@ router.get('/admin/pretest/:id', isAdmin, async (req, res) => {
             <div class="card-enterprise">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
                     <h5 style="margin:0">提出者: ${escapeHtml(it.name||'')}</h5>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <a href="/admin/pretest/${it._id}/report.pdf" target="_blank"
-                           class="btn btn-primary" style="font-size:13px;padding:7px 14px">
-                            <i class="fa fa-file-pdf"></i> PDFダウンロード
-                        </a>
-                        <button onclick="sendReport('${it._id}')"
-                                class="btn btn-outline-primary" style="font-size:13px;padding:7px 14px">
-                            <i class="fa fa-paper-plane"></i> 採用担当にメール送信
-                        </button>
-                    </div>
+
                 </div>
                 <div>メール: ${escapeHtml(it.email||'')}</div>
                 <div>言語: ${escapeHtml(it.lang||'common')}</div>
                 <div style="margin-top:12px"><table class="history-table"><thead><tr><th>問題</th><th>回答</th><th>得点(部分)</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
                 <div style="margin-top:12px">合計スコア: ${it.score}/${it.total}</div>
             </div>
-            <script>
-            async function sendReport(id) {
-                if (!confirm('採用担当にレポートメールを送信しますか？')) return;
-                const btn = event.target.closest('button');
-                btn.disabled = true; btn.textContent = '送信中...';
-                const r = await fetch('/admin/pretest/' + id + '/send-report', { method: 'POST' });
-                const d = await r.json();
-                if (d.ok) alert('送信しました！');
-                else alert('エラー: ' + (d.error || '不明'));
-                btn.disabled = false; btn.innerHTML = '<i class="fa fa-paper-plane"></i> 採用担当にメール送信';
-            }
-            </script>
         `);
     } catch (e){ console.error(e); res.status(500).send('エラー'); }
 });
 
 // /admin/pretest-config は廃止（不要機能のため削除）
-
-// ── 個別テスト結果のPDF出力・手動送信（管理者）──────────
-router.get('/admin/pretest/:id/report.pdf', isAdmin, async (req, res) => {
-    try {
-        const submission = await PretestSubmission.findById(req.params.id).lean();
-        if (!submission) return res.status(404).send('Not found');
-        const config = { passPercent: 60, usePercent: true };
-        const html = buildReportHtml(submission, config);
-        pdf.create(html, { format: 'A4', border: '15mm' }).toBuffer((err, buffer) => {
-            if (err) return res.status(500).send('PDF生成エラー');
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename="pretest_${submission.name}.pdf"`);
-            res.send(buffer);
-        });
-    } catch (e) { res.status(500).send('エラー: ' + e.message); }
-});
-
-router.post('/admin/pretest/:id/send-report', isAdmin, async (req, res) => {
-    try {
-        const submission = await PretestSubmission.findById(req.params.id).lean();
-        if (!submission) return res.status(404).json({ ok: false, error: 'not found' });
-        await sendPretestReport(submission);
-        res.json({ ok: true, message: 'レポートを送信しました' });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
-});
 
 // デバッグ: 最近の入社前テストをJSONで返す（管理者のみ）
 
