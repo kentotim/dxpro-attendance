@@ -63,7 +63,7 @@ ${perRows ? `<h3 style="margin-bottom:8px">問題別得点</h3>
 // ── 採点完了後のレポート自動送信 ───────────────────────
 async function sendPretestReport(submission) {
     try {
-        const config = await PretestConfig.findOne().lean() || {};
+        const config = { passPercent: 60, usePercent: true, notifyEmails: [], autoSendReport: false };
         if (!config.autoSendReport) return;
         const emails = config.notifyEmails || [];
         if (emails.length === 0) return;
@@ -1007,20 +1007,12 @@ router.post('/pretest/submit', async (req, res) => {
 // 管理者用: 入社前テスト一覧
 router.get('/admin/pretests', isAdmin, async (req, res) => {
     try {
-        const [items, ptConfig] = await Promise.all([
-            PretestSubmission.find().sort({ createdAt: -1 }).limit(200).lean(),
-            PretestConfig.findOne().lean()
-        ]);
-        const cfg = ptConfig || { passPercent: 60, usePercent: true, passScore: 60 };
-        const passLine = cfg.usePercent
-            ? `合格ライン: ${cfg.passPercent}%`
-            : `合格ライン: ${cfg.passScore}点`;
+        const PASS_PERCENT = 60; // 合格ライン固定（40点満点の60% = 24点以上）
+        const items = await PretestSubmission.find().sort({ createdAt: -1 }).limit(200).lean();
+        const passLine = `合格ライン: ${PASS_PERCENT}%（${Math.round(40 * PASS_PERCENT / 100)}点以上）`;
         function isPassed(it) {
             if (it.score === null || it.score === undefined || !it.total) return null;
-            const threshold = cfg.usePercent
-                ? (it.total * cfg.passPercent / 100)
-                : cfg.passScore;
-            return it.score >= threshold;
+            return it.score >= (it.total * PASS_PERCENT / 100);
         }
         renderPage(req, res, '入社前テスト一覧', '入社前テスト提出一覧', `
             <style>
@@ -1051,7 +1043,7 @@ router.get('/admin/pretests', isAdmin, async (req, res) => {
                 <div class="pt-admin-header">
                     <div>
                         <div class="pt-admin-title">📋 入社前テスト 提出一覧</div>
-                        <div class="pt-admin-sub">最新 ${items.length} 件 ／ ${passLine}（<a href="/admin/pretest-config" style="color:#2563eb">設定変更</a>）</div>
+                        <div class="pt-admin-sub">最新 ${items.length} 件 ／ ${passLine}</div>
                     </div>
                 </div>
                 <div class="pt-admin-table-wrap">
@@ -1161,70 +1153,14 @@ router.get('/admin/pretest/:id', isAdmin, async (req, res) => {
     } catch (e){ console.error(e); res.status(500).send('エラー'); }
 });
 
-// ── 合否ライン設定画面（管理者）────────────────────────
-router.get('/admin/pretest-config', isAdmin, async (req, res) => {
-    const config = await PretestConfig.findOne().lean() || { passPercent: 60, usePercent: true, notifyEmails: [], autoSendReport: true };
-    renderPage(req, res, '入社前テスト設定', '入社前テスト 採点設定', `
-        <div class="card-enterprise" style="max-width:640px">
-            <h5 style="margin-bottom:20px"><i class="fa fa-sliders"></i> 合否ライン・通知設定</h5>
-            <form method="POST" action="/admin/pretest-config">
-                <div style="margin-bottom:16px">
-                    <label style="display:block;font-weight:600;margin-bottom:6px">合否判定方式</label>
-                    <label style="margin-right:20px">
-                        <input type="radio" name="usePercent" value="1" ${config.usePercent ? 'checked' : ''}> パーセント（%）で判定
-                    </label>
-                    <label>
-                        <input type="radio" name="usePercent" value="0" ${!config.usePercent ? 'checked' : ''}> 点数で判定
-                    </label>
-                </div>
-                <div style="margin-bottom:16px">
-                    <label style="display:block;font-weight:600;margin-bottom:6px">合格ライン（%）</label>
-                    <input type="number" name="passPercent" value="${config.passPercent}" min="0" max="100"
-                           style="width:100px;padding:8px;border:1px solid #e5e7eb;border-radius:8px"> %
-                </div>
-                <div style="margin-bottom:16px">
-                    <label style="display:block;font-weight:600;margin-bottom:6px">合格ライン（点数）</label>
-                    <input type="number" name="passScore" value="${config.passScore || 60}" min="0"
-                           style="width:100px;padding:8px;border:1px solid #e5e7eb;border-radius:8px"> 点
-                </div>
-                <div style="margin-bottom:16px">
-                    <label style="display:block;font-weight:600;margin-bottom:6px">採用担当メールアドレス（カンマ区切りで複数可）</label>
-                    <input type="text" name="notifyEmails" value="${(config.notifyEmails || []).join(', ')}"
-                           placeholder="hr@example.com, cto@example.com"
-                           style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:8px">
-                </div>
-                <div style="margin-bottom:24px">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                        <input type="checkbox" name="autoSendReport" value="1" ${config.autoSendReport ? 'checked' : ''}>
-                        <span style="font-weight:600">テスト提出後に自動でレポートメールを送信する</span>
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary" style="padding:10px 24px">保存</button>
-            </form>
-        </div>
-    `);
-});
-
-router.post('/admin/pretest-config', isAdmin, async (req, res) => {
-    const { passPercent, passScore, notifyEmails, autoSendReport, usePercent } = req.body;
-    const emails = (notifyEmails || '').split(',').map(e => e.trim()).filter(Boolean);
-    await PretestConfig.findOneAndUpdate({}, {
-        passPercent: Number(passPercent) || 60,
-        passScore:   Number(passScore) || 60,
-        usePercent:  usePercent === '1',
-        notifyEmails: emails,
-        autoSendReport: !!autoSendReport,
-        updatedAt: new Date()
-    }, { upsert: true });
-    res.redirect('/admin/pretest-config?saved=1');
-});
+// /admin/pretest-config は廃止（不要機能のため削除）
 
 // ── 個別テスト結果のPDF出力・手動送信（管理者）──────────
 router.get('/admin/pretest/:id/report.pdf', isAdmin, async (req, res) => {
     try {
         const submission = await PretestSubmission.findById(req.params.id).lean();
         if (!submission) return res.status(404).send('Not found');
-        const config = await PretestConfig.findOne().lean() || { passPercent: 60, usePercent: true };
+        const config = { passPercent: 60, usePercent: true };
         const html = buildReportHtml(submission, config);
         pdf.create(html, { format: 'A4', border: '15mm' }).toBuffer((err, buffer) => {
             if (err) return res.status(500).send('PDF生成エラー');
