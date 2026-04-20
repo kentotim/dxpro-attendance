@@ -26,7 +26,8 @@ const AttendanceSchema = new mongoose.Schema({
     isConfirmed: { type: Boolean, default: false },
     confirmedAt: { type: Date },
     confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    notes: { type: String }
+    notes: { type: String },
+    isGpsVerified: { type: Boolean, default: false }  // GPS認証による打刻か否か
 });
 
 // 掲示板投稿スキーマ
@@ -428,6 +429,8 @@ const ApprovedLocationSchema = new mongoose.Schema({
     longitude: { type: Number, required: true },       // 経度
     radius:    { type: Number, required: true, default: 200 }, // 許容半径（メートル）
     isActive:  { type: Boolean, default: true },
+    // 空配列 = 全員OK、IDが入っている場合 = そのユーザーのみ打刻可能
+    allowedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now }
 });

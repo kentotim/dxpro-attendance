@@ -204,7 +204,17 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
 
             <div class="actions">
               ${todayAttendance ? `
-                ${!todayAttendance.checkOut ? `<form action="/checkout" method="POST" style="display:inline"><button class="btn btn--danger" type="submit"><i class="fa-solid fa-sign-out-alt"></i> 退勤</button></form>` : ''}
+                ${!todayAttendance.checkOut ? `
+                <form id="checkoutForm" action="/checkout" method="POST" style="display:inline">
+                  <input type="hidden" name="gpsLat" id="coGpsLat">
+                  <input type="hidden" name="gpsLng" id="coGpsLng">
+                  <input type="hidden" name="gpsLocation" id="coGpsLocation">
+                  <button class="btn btn--danger" type="button" onclick="gpsCheckout()" id="checkoutBtn">
+                    <i class="fa-solid fa-sign-out-alt"></i> GPS退勤
+                  </button>
+                </form>
+                <div id="coGpsStatus" style="font-size:12px;color:#64748b;margin-top:6px;text-align:center"></div>
+                ` : ''}
                 ${todayAttendance.checkIn && (!todayAttendance.lunchStart || todayAttendance.lunchEnd) ? `
                   <form action="/start-lunch" method="POST" style="display:inline"><button class="btn btn--primary" type="submit"><i class="fa-solid fa-utensils"></i> 昼休み開始</button></form>
                 ` : ''}
@@ -275,7 +285,10 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
                   return `
                     <tr>
                       <td>${moment(record.date).tz('Asia/Tokyo').format('MM/DD')}</td>
-                      <td>${record.checkIn ? moment(record.checkIn).tz('Asia/Tokyo').format('HH:mm') : '-'}</td>
+                      <td>
+                        ${record.checkIn ? moment(record.checkIn).tz('Asia/Tokyo').format('HH:mm') : '-'}
+                        ${record.isGpsVerified ? '<span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:600">GPS</span>' : '<span style="background:#f1f5f9;color:#94a3b8;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:600">手動</span>'}
+                      </td>
                       <td>${record.checkOut ? moment(record.checkOut).tz('Asia/Tokyo').format('HH:mm') : '-'}</td>
                       <td>${lunch}</td>
                       <td>${record.workingHours ? record.workingHours + ' h' : '-'}</td>
@@ -371,8 +384,7 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
 
-  async function gpsCheckin() {
-    const btn = document.getElementById('checkinBtn');
+  async function gpsCheckin() {    const btn = document.getElementById('checkinBtn');
     const status = document.getElementById('gpsStatus');
     if (!navigator.geolocation) {
       status.innerHTML = '<span style="color:#ef4444">⚠ Geolocationが使用できません。管理者にお問い合わせください。</span>';
@@ -389,12 +401,10 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
         const locations = await resp.json();
 
         if (locations.length === 0) {
-          // 承認済み場所が未設定の場合はそのまま打刻
-          document.getElementById('gpsLat').value = latitude;
-          document.getElementById('gpsLng').value = longitude;
-          document.getElementById('gpsLocation').value = '未設定（GPS取得済み）';
-          status.innerHTML = '<span style="color:#16a34a">✓ 位置情報取得完了（場所未設定）</span>';
-          document.getElementById('checkinForm').submit();
+          // 承認済み場所が未設定の場合はブロック
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
+          status.innerHTML = '<span style="color:#ef4444">⚠ 承認済み打刻場所が設定されていません。管理者にお問い合わせください。</span>';
           return;
         }
 
@@ -414,12 +424,14 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
           document.getElementById('gpsLng').value = longitude;
           document.getElementById('gpsLocation').value = matched.name;
           status.innerHTML = '<span style="color:#16a34a">✓ 承認済み場所：' + matched.name + '（' + Math.round(minDist) + 'm以内）</span>';
+          console.log('[GPS出勤] 認証OK', {latitude, longitude, matched: matched.name, dist: Math.round(minDist)});
           document.getElementById('checkinForm').submit();
         } else {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
           const dist = Math.round(minDist);
-          status.innerHTML = \`<span style="color:#ef4444">⚠ 承認済み場所外です（最寄り：\${nearest ? nearest.name : '-'}、距離：\${dist}m）<br>管理者に連絡するか、<a href="/add-attendance" style="color:#0f6fff">手動打刻</a>をご利用ください。</span>\`;
+          console.log('[GPS出勤] 範囲外', {latitude, longitude, nearest: nearest?.name, dist});
+          status.innerHTML = \`<span style="color:#ef4444">⚠ 承認済み場所外です（最寄り：\${nearest ? nearest.name : '-'}、距離：\${dist}m）<br>管理者にお問い合わせください。</span>\`;
         }
       } catch(e) {
         btn.disabled = false;
@@ -429,6 +441,64 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
     }, err => {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
+      const msgs = { 1:'位置情報の使用が拒否されました', 2:'位置情報を取得できませんでした', 3:'タイムアウトしました' };
+      status.innerHTML = \`<span style="color:#ef4444">⚠ \${msgs[err.code] || '不明なエラー'}</span>\`;
+    }, { timeout: 10000, enableHighAccuracy: true });
+  }
+
+  async function gpsCheckout() {
+    const btn = document.getElementById('checkoutBtn');
+    const status = document.getElementById('coGpsStatus');
+    if (!navigator.geolocation) {
+      status.innerHTML = '<span style="color:#ef4444">⚠ Geolocationが使用できません。</span>';
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 位置情報取得中...';
+    status.textContent = '現在地を確認しています...';
+
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        const resp = await fetch('/locations/api/active');
+        const locations = await resp.json();
+
+        if (locations.length === 0) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-sign-out-alt"></i> GPS退勤';
+          status.innerHTML = '<span style="color:#ef4444">⚠ 承認済み打刻場所が設定されていません。管理者にお問い合わせください。</span>';
+          return;
+        }
+
+        let nearest = null, minDist = Infinity;
+        for (const loc of locations) {
+          const dist = haversineDistance(latitude, longitude, loc.latitude, loc.longitude);
+          if (dist < minDist) { minDist = dist; nearest = loc; }
+        }
+        const matched = locations.find(loc =>
+          haversineDistance(latitude, longitude, loc.latitude, loc.longitude) <= loc.radius
+        );
+
+        if (matched) {
+          document.getElementById('coGpsLat').value = latitude;
+          document.getElementById('coGpsLng').value = longitude;
+          document.getElementById('coGpsLocation').value = matched.name;
+          status.innerHTML = '<span style="color:#16a34a">✓ 承認済み場所：' + matched.name + '</span>';
+          document.getElementById('checkoutForm').submit();
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-sign-out-alt"></i> GPS退勤';
+          const dist = Math.round(minDist);
+          status.innerHTML = \`<span style="color:#ef4444">⚠ 承認済み場所外です（最寄り：\${nearest ? nearest.name : '-'}、距離：\${dist}m）<br>管理者にお問い合わせください。</span>\`;
+        }
+      } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-sign-out-alt"></i> GPS退勤';
+        status.innerHTML = '<span style="color:#ef4444">⚠ サーバーエラーが発生しました</span>';
+      }
+    }, err => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-sign-out-alt"></i> GPS退勤';
       const msgs = { 1:'位置情報の使用が拒否されました', 2:'位置情報を取得できませんでした', 3:'タイムアウトしました' };
       status.innerHTML = \`<span style="color:#ef4444">⚠ \${msgs[err.code] || '不明なエラー'}</span>\`;
     }, { timeout: 10000, enableHighAccuracy: true });
@@ -1265,7 +1335,62 @@ router.post('/save-attendance', requireLogin, async (req, res) => {
 router.post('/checkin', requireLogin, async (req, res) => {
     try {
         const user = await User.findById(req.session.userId);
-        
+
+        // ── サーバー側GPS検証 ──────────────────────────
+        const { ApprovedLocation } = require('../models');
+        const allLocations = await ApprovedLocation.find({ isActive: true });
+
+        console.log('[GPS検証] 承認済み場所数:', allLocations.length);
+        console.log('[GPS検証] 受信GPS:', req.body.gpsLat, req.body.gpsLng);
+
+        if (allLocations.length > 0) {
+            const gpsLat = parseFloat(req.body.gpsLat);
+            const gpsLng = parseFloat(req.body.gpsLng);
+
+            if (isNaN(gpsLat) || isNaN(gpsLng)) {
+                console.log('[GPS検証] ❌ GPS座標なし → 拒否');
+                return res.status(403).send('GPS位置情報が必要です。承認済み場所からのみ打刻できます。');
+            }
+
+            const toRad = d => d * Math.PI / 180;
+            const haversine = (lat1, lng1, lat2, lng2) => {
+                const R = 6371000;
+                const dLat = toRad(lat2 - lat1);
+                const dLng = toRad(lng2 - lng1);
+                const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            };
+
+            const userId = req.session.userId.toString();
+            const applicableLocations = allLocations.filter(loc =>
+                loc.allowedUsers.length === 0 ||
+                loc.allowedUsers.map(id => id.toString()).includes(userId)
+            );
+
+            console.log('[GPS検証] 適用場所数:', applicableLocations.length);
+
+            if (applicableLocations.length === 0) {
+                console.log('[GPS検証] ❌ 対象場所なし → 拒否');
+                return res.status(403).send('あなたに割り当てられた承認済み打刻場所がありません。管理者にお問い合わせください。');
+            }
+
+            for (const loc of applicableLocations) {
+                const dist = Math.round(haversine(gpsLat, gpsLng, loc.latitude, loc.longitude));
+                console.log(`[GPS検証] 場所:${loc.name} 距離:${dist}m 許容:${loc.radius}m`);
+            }
+
+            const matched = applicableLocations.find(loc =>
+                haversine(gpsLat, gpsLng, loc.latitude, loc.longitude) <= loc.radius
+            );
+
+            if (!matched) {
+                console.log('[GPS検証] ❌ 範囲外 → 拒否');
+                return res.status(403).send('承認済み場所の範囲外からの打刻は許可されていません。管理者にお問い合わせください。');
+            }
+            console.log('[GPS検証] ✅ 認証OK:', matched.name);
+        }
+        // ─────────────────────────────────────────────
+
         // 「日本時間の今」をUTCで保存
         const now = new Date();
         const todayJST = moment.tz(now, "Asia/Tokyo").startOf('day').toDate();
@@ -1281,9 +1406,10 @@ router.post('/checkin', requireLogin, async (req, res) => {
         const attendance = new Attendance({
             userId: user._id,
             date: todayJST,
-            checkIn: now, // 現在時刻（UTC）
+            checkIn: now,
             status: now.getHours() >= 9 ? '遅刻' : '正常',
-            notes: req.body.gpsLocation ? `GPS打刻: ${req.body.gpsLocation}` : undefined
+            notes: req.body.gpsLocation ? `GPS打刻: ${req.body.gpsLocation}` : undefined,
+            isGpsVerified: true
         });
 
         await attendance.save();
@@ -1348,6 +1474,47 @@ router.post('/end-lunch', requireLogin, async (req, res) => {
 router.post('/checkout', requireLogin, async (req, res) => {
     try {
         const user = await User.findById(req.session.userId);
+
+        // ── サーバー側GPS検証 ──────────────────────────
+        const { ApprovedLocation } = require('../models');
+        const allLocations = await ApprovedLocation.find({ isActive: true });
+
+        if (allLocations.length > 0) {
+            const gpsLat = parseFloat(req.body.gpsLat);
+            const gpsLng = parseFloat(req.body.gpsLng);
+
+            if (isNaN(gpsLat) || isNaN(gpsLng)) {
+                return res.status(403).send('GPS位置情報が必要です。承認済み場所からのみ退勤打刻できます。');
+            }
+
+            const toRad = d => d * Math.PI / 180;
+            function haversine(lat1, lng1, lat2, lng2) {
+                const R = 6371000;
+                const dLat = toRad(lat2 - lat1);
+                const dLng = toRad(lng2 - lng1);
+                const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+
+            const userId = req.session.userId.toString();
+            const applicableLocations = allLocations.filter(loc =>
+                loc.allowedUsers.length === 0 ||
+                loc.allowedUsers.map(id => id.toString()).includes(userId)
+            );
+
+            if (applicableLocations.length === 0) {
+                return res.status(403).send('あなたに割り当てられた承認済み打刻場所がありません。管理者にお問い合わせください。');
+            }
+
+            const matched = applicableLocations.find(loc =>
+                haversine(gpsLat, gpsLng, loc.latitude, loc.longitude) <= loc.radius
+            );
+
+            if (!matched) {
+                return res.status(403).send('承認済み場所の範囲外からの退勤打刻は許可されていません。管理者にお問い合わせください。');
+            }
+        }
+        // ─────────────────────────────────────────────
 
         const now = new Date();
         const todayJST = moment.tz(now, "Asia/Tokyo").startOf('day').toDate();
