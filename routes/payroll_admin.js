@@ -15,7 +15,7 @@ const { calcPayroll, aggregateAttendance, calcHourlyRate } = require('../lib/pay
 // ─────────────────────────────────────────────────────────────
 router.get('/admin/payroll/master', requireLogin, isAdmin, async (req, res) => {
     const employees = await Employee.find({ isActive: { $ne: false } })
-        .populate('userId', 'name email').sort({ createdAt: 1 }).lean();
+        .sort({ createdAt: 1 }).lean();
 
     const empIds = employees.map(e => e._id);
     const masters = await PayrollMaster.find({ employeeId: { $in: empIds } }).lean();
@@ -78,8 +78,8 @@ router.get('/admin/payroll/master', requireLogin, isAdmin, async (req, res) => {
         const m = masterMap[String(emp._id)];
         const totalAllow = m ? ((m.positionAllowance||0)+(m.housingAllowance||0)+(m.familyAllowance||0)+(m.commuteAllowance||0)) : 0;
         return `<tr>
-          <td><strong>${emp.userId?.name || '—'}</strong></td>
-          <td>${emp.userId?.email || '—'}</td>
+          <td><strong>${emp.name || '—'}</strong></td>
+          <td>${emp.email || '—'}</td>
           <td>${m ? m.baseSalary.toLocaleString() + ' 円' : '—'}</td>
           <td>${m ? totalAllow.toLocaleString() + ' 円' : '—'}</td>
           <td>${m ? (m.autoCalcInsurance ? '✅ 自動' : '手動') : '—'}</td>
@@ -98,7 +98,7 @@ router.get('/admin/payroll/master', requireLogin, isAdmin, async (req, res) => {
 // GET /admin/payroll/master/:empId — 個人給与マスタ設定
 // ─────────────────────────────────────────────────────────────
 router.get('/admin/payroll/master/:empId', requireLogin, isAdmin, async (req, res) => {
-    const emp = await Employee.findById(req.params.empId).populate('userId', 'name email').lean();
+    const emp = await Employee.findById(req.params.empId).lean();
     if (!emp) return res.status(404).send('社員が見つかりません');
 
     const master = await PayrollMaster.findOne({ employeeId: emp._id }).lean() || {};
@@ -122,7 +122,7 @@ router.get('/admin/payroll/master/:empId', requireLogin, isAdmin, async (req, re
 <div class="pms-wrap">
   <div class="pms-card">
     <div class="pms-title">⚙️ 給与マスタ設定</div>
-    <div class="pms-sub">${emp.userId?.name || '—'}（${emp.userId?.email || '—'}）</div>
+    <div class="pms-sub">${emp.name || '—'}（${emp.email || '—'}）</div>
     <form action="/admin/payroll/master/${emp._id}" method="POST">
 
       <div class="pms-section">基本給</div>
@@ -274,7 +274,7 @@ router.get('/admin/payroll/run/:runId', requireLogin, isAdmin, async (req, res) 
     if (!run) return res.status(404).send('計算ランが見つかりません');
 
     const slips = await PayrollSlip.find({ runId: run._id })
-        .populate({ path: 'employeeId', populate: { path: 'userId', select: 'name email' } })
+        .populate('employeeId')
         .sort({ createdAt: 1 }).lean();
 
     const calc  = parseInt(req.query.calc) || 0;
@@ -334,7 +334,7 @@ router.get('/admin/payroll/run/:runId', requireLogin, isAdmin, async (req, res) 
     <tbody>
       ${slips.map(slip => {
         const emp = slip.employeeId;
-        const name = emp?.userId?.name || '—';
+        const name = emp?.name || '—';
         const d = slip.details || {};
         return `<tr>
           <td><strong>${name}</strong></td>
@@ -372,13 +372,13 @@ router.post('/admin/payroll/slip/:slipId/issue', requireLogin, isAdmin, async (r
 // ─────────────────────────────────────────────────────────────
 router.get('/admin/payroll/slip/:slipId/pdf', requireLogin, isAdmin, async (req, res) => {
     const slip = await PayrollSlip.findById(req.params.slipId)
-        .populate({ path: 'employeeId', populate: { path: 'userId', select: 'name email' } })
+        .populate('employeeId')
         .populate('runId').lean();
     if (!slip) return res.status(404).send('明細が見つかりません');
 
     const d    = slip.details || {};
     const emp  = slip.employeeId;
-    const name = emp?.userId?.name || '—';
+    const name = emp?.name || '—';
     const run  = slip.runId;
     const month = run ? moment(run.periodFrom).tz('Asia/Tokyo').format('YYYY年M月分') : '—';
 
