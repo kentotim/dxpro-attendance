@@ -9,6 +9,7 @@ const { User, Employee, PayrollMaster, PayrollSlip, PayrollRun } = require('../m
 const { requireLogin, isAdmin } = require('../middleware/auth');
 const { renderPage } = require('../lib/renderPage');
 const { calcPayroll, aggregateAttendance, calcHourlyRate } = require('../lib/payrollEngine');
+const { sendMail } = require('../config/mailer');
 
 // ─────────────────────────────────────────────────────────────
 // GET /admin/payroll/master — 給与マスタ一覧
@@ -360,10 +361,53 @@ router.get('/admin/payroll/run/:runId', requireLogin, isAdmin, async (req, res) 
 // POST /admin/payroll/slip/:slipId/issue — 発行処理
 // ─────────────────────────────────────────────────────────────
 router.post('/admin/payroll/slip/:slipId/issue', requireLogin, isAdmin, async (req, res) => {
-    const slip = await PayrollSlip.findById(req.params.slipId);
+    const slip = await PayrollSlip.findById(req.params.slipId).populate('employeeId').populate('runId');
     if (!slip) return res.status(404).send('明細が見つかりません');
     slip.status = 'issued';
+    slip.confirmedAt = new Date();
+    slip.confirmedBy = req.session.userId;
     await slip.save();
+
+    // メール通知
+    try {
+        const emp = slip.employeeId;
+        const toEmail = emp?.email;
+        const name = emp?.name || '社員';
+        const run = slip.runId;
+        const month = run?.periodFrom
+            ? moment(run.periodFrom).tz('Asia/Tokyo').format('YYYY年M月分')
+            : '—';
+        const net = (slip.net || 0).toLocaleString();
+        const gross = (slip.gross || 0).toLocaleString();
+
+        if (toEmail) {
+            await sendMail({
+                to: toEmail,
+                from: process.env.MAIL_FROM || process.env.SMTP_USER,
+                subject: `【給与明細発行】${month}の給与明細が発行されました`,
+                html: `
+<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f9fafb;border-radius:12px">
+  <div style="background:#1e3a5f;border-radius:8px;padding:20px 24px;margin-bottom:20px">
+    <h2 style="color:#fff;margin:0;font-size:18px">💴 給与明細発行のお知らせ</h2>
+  </div>
+  <p style="color:#374151;font-size:14px">${name} 様</p>
+  <p style="color:#374151;font-size:14px">${month}の給与明細が発行されました。<br>システムにログインしてご確認ください。</p>
+  <div style="background:#fff;border-radius:8px;padding:16px 20px;margin:16px 0;border:1px solid #e5e7eb">
+    <table style="width:100%;font-size:14px;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:#6b7280">対象月</td><td style="text-align:right;font-weight:700;color:#0b2540">${month}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280">総支給額</td><td style="text-align:right;font-weight:700;color:#0b2540">¥${gross}</td></tr>
+      <tr style="border-top:2px solid #1e3a5f"><td style="padding:8px 0;color:#1e3a5f;font-weight:700">差引支給額（手取り）</td><td style="text-align:right;font-weight:800;font-size:16px;color:#1e3a5f">¥${net}</td></tr>
+    </table>
+  </div>
+  <a href="${process.env.APP_URL || 'http://localhost:10000'}/hr/payroll" style="display:inline-block;background:#1e3a5f;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px">給与明細を確認する →</a>
+  <p style="color:#9ca3af;font-size:12px;margin-top:20px">このメールは自動送信です。心当たりがない場合は管理者にご連絡ください。</p>
+</div>`,
+            });
+        }
+    } catch (mailErr) {
+        console.error('[PayrollIssue] メール送信エラー:', mailErr.message);
+    }
+
     res.redirect('back');
 });
 

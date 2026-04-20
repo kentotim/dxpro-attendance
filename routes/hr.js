@@ -1970,8 +1970,13 @@ router.get("/hr/payroll", requireLogin, async (req, res) => {
 
   const isAdmin = req.session.isAdmin;
 
-  // 直近12件の給与明細を取得
-  const slips = await PayrollSlip.find({ employeeId: employee._id })
+  // 直近12件の給与明細を取得（発行済み・確定・支払済みのみ社員に表示）
+  const visibleStatuses = req.session.isAdmin
+    ? undefined  // 管理者は全ステータス表示
+    : { $in: ['issued', 'locked', 'paid'] };
+  const slipQuery = { employeeId: employee._id };
+  if (visibleStatuses) slipQuery.status = visibleStatuses;
+  const slips = await PayrollSlip.find(slipQuery)
     .populate("runId")
     .sort({ createdAt: -1 })
     .limit(12);
@@ -2261,6 +2266,7 @@ router.get("/hr/payroll/:id", requireLogin, async (req, res) => {
   const slips = await PayrollSlip.find({
     employeeId: employee._id,
     ...(payMonth ? { runId: { $in: runIds } } : {}),
+    ...(!req.session.isAdmin ? { status: { $in: ['issued', 'locked', 'paid'] } } : {}),
   })
     .populate("runId")
     .sort({ createdAt: -1 });
