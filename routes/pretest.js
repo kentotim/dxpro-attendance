@@ -73,31 +73,31 @@ async function sendPretestReport(submission) {
         const passScore = config.usePercent ? (submission.total * config.passPercent / 100) : config.passScore;
         const passed = submission.score >= passScore;
 
-        await new Promise((resolve, reject) => {
-            pdf.create(reportHtml, { format: 'A4', border: '15mm' }).toBuffer((err, buffer) => {
+        const buffer = await new Promise((resolve, reject) => {
+            pdf.create(reportHtml, { format: 'A4', border: '15mm' }).toBuffer((err, buf) => {
                 if (err) return reject(err);
-                resolve(buffer);
+                resolve(buf);
             });
-        }).then(async (buffer) => {
-            for (const to of emails) {
-                await sendMail({
-                    to,
-                    subject: `【入社前テスト】${submission.name} 様 採点レポート（${passed ? '合格' : '不合格'} ${pct}%）`,
-                    html: `<p>お疲れ様です。入社前テストの採点レポートをお送りします。</p>
-                           <ul>
-                             <li>受験者：<strong>${escapeHtml(submission.name)}</strong></li>
-                             <li>スコア：<strong>${submission.score} / ${submission.total}点（${pct}%）</strong></li>
-                             <li>判定：<strong style="color:${passed ? '#16a34a' : '#dc2626'}">${passed ? '合格' : '不合格'}</strong></li>
-                           </ul>
-                           <p>詳細はPDFファイルをご確認ください。</p>`,
-                    attachments: [{
-                        filename: `pretest_report_${submission.name}_${moment().format('YYYYMMDD')}.pdf`,
-                        content: buffer,
-                        contentType: 'application/pdf'
-                    }]
-                });
-            }
         });
+
+        for (const to of emails) {
+            await sendMail({
+                to,
+                subject: `【入社前テスト】${submission.name} 様 採点レポート（${passed ? '合格' : '不合格'} ${pct}%）`,
+                html: `<p>お疲れ様です。入社前テストの採点レポートをお送りします。</p>
+                       <ul>
+                         <li>受験者：<strong>${escapeHtml(submission.name)}</strong></li>
+                         <li>スコア：<strong>${submission.score} / ${submission.total}点（${pct}%）</strong></li>
+                         <li>判定：<strong style="color:${passed ? '#16a34a' : '#dc2626'}">${passed ? '合格' : '不合格'}</strong></li>
+                       </ul>
+                       <p>詳細はPDFファイルをご確認ください。</p>`,
+                attachments: [{
+                    filename: `pretest_report_${submission.name}_${moment().format('YYYYMMDD')}.pdf`,
+                    content: buffer,
+                    contentType: 'application/pdf'
+                }]
+            });
+        }
         console.log('[pretest] report sent to', emails);
     } catch (e) {
         console.error('[pretest] report send error', e.message);
@@ -119,8 +119,110 @@ router.get('/pretest/answers', requireLogin, (req, res) => {
 });
 
 // 言語別模範解答ルート
+// ⚠️ /pretest/answers/common は静的ルートだが Express のルート順序上 :lang に先に捕捉されるため
+//    ここで lang==='common' を判定して共通解答ページを直接レンダリングする
 router.get('/pretest/answers/:lang', requireLogin, (req, res) => {
     const lang = (req.params.lang||'').toLowerCase();
+
+    // ── common ルートをここで処理（登録順序の問題でこのハンドラが先に捕捉するため）──
+    if (lang === 'common') {
+        const commonQuestions = [
+            'Javaでメモリ管理はどのように行われますか？',
+            'Javaのガベージコレクションとは何ですか？',
+            'Javaの例外（checked/unchecked）の違いを説明してください',
+            'JavaScriptのイベントループを簡潔に説明してください',
+            'this の挙動（JavaScript）について説明してください',
+            'Spring Bootの主な利点を2つ挙げてください',
+            'DI（依存性注入）とは何ですか？',
+            'RESTとSOAPの主な違いを説明してください',
+            'GETとPOSTの使い分けを説明してください',
+            'トランザクションの隔離レベルとは何ですか？簡単に',
+            'SQLインデックスの利点と欠点を1つずつ述べてください',
+            'XSS攻撃を防ぐ一般的な対策を述べてください',
+            '非同期処理を行う際の注意点を1つ挙げてください',
+            'クロスプラットフォームでの文字コード問題の対処法を挙げてください',
+            'マイクロサービスの利点を2つ挙げてください',
+            'オブジェクトの不変性（immutable）の利点を説明してください',
+            '依存関係のバージョン衝突（dependency hell）にどう対処しますか？',
+            'CI/CDで必須だと思うチェックを1つ挙げてください',
+            'ロギングで重要なポイントは何ですか？',
+            'パフォーマンスチューニングで最初に見る指標は何ですか？',
+            'NullPointerExceptionを回避する修正（簡単なJavaメソッド）',
+            '配列の重複を取り除くJavaScript関数（短め）',
+            '簡単なRESTエンドポイントの雛形（Spring Boot）',
+            'PreparedStatementを使ったSELECT例（Java）',
+            '非同期にAPIを取得してconsole.logするfetch例（JS）',
+            'リストをソートして返すJavaメソッド',
+            'フォーム入力のサニタイズ簡易例（JS）',
+            '例外処理を追加したファイル読み込み例（Java）',
+            'JSONを解析してフィールドを取得するJSの例',
+            '簡単なクエリを実行して結果を処理する擬似コード（任意言語）',
+            '小さなアルゴリズム: 配列の最大値を返す関数（JS）',
+            '文字列を逆順にするメソッド（Java）',
+            '認証用のJWTを検証する擬似コード（任意言語）',
+            '再帰を使った階乗実装（JS）',
+            'スレッドセーフなカウンタの実装（Java、概念で可）',
+            'バルク挿入を行う擬似コード（SQL/Java）',
+            'APIから取得したデータをページネートするロジック（JS）',
+            '簡単な例外ログの書き方（Java）',
+            '同じ処理を同期→非同期に切り替える例（JS、概念可）',
+            'ユーティリティ関数の実装例'
+        ];
+        const commonAnswers = [
+            'JVMがヒープ管理を行い、ガベージコレクタが不要なオブジェクトを回収する。参照と寿命を意識してメモリ使用を抑える。',
+            '不要になったオブジェクトを自動検出してメモリを解放する仕組み。世代別収集やマーク&スイープ等がある。',
+            'checkedはコンパイル時に捕捉/宣言が必要（例: IOException）、uncheckedはRuntimeException系で宣言不要。',
+            '実行スタックとタスクキューで非同期イベントを処理する仕組み。マクロ/マイクロタスクの順序に注意。',
+            '呼び出し方法で決まる（グローバル、メソッド、コンストラクタ、call/apply/bind）。arrow関数はレキシカル束縛。',
+            '自動設定で起動が速い。組み込みサーバやパッケージ化が容易でプロダクション化しやすい。',
+            '依存オブジェクトを外部から注入して疎結合・テスト容易性を高めるパターン。',
+            'RESTは軽量でHTTP/JSON中心、SOAPはXMLベースで標準仕様や拡張が豊富。',
+            'GETは取得（冪等）、POSTは作成/副作用あり（ペイロード送信）。',
+            '同時実行時のデータ整合性を制御する設定（例: READ COMMITTED, SERIALIZABLE 等）。',
+            '利点: 検索高速化。欠点: INSERT/UPDATEでのオーバーヘッドやディスク消費。',
+            '出力時のHTMLエスケープ、入力サニタイズ、Content-Security-Policyの導入。',
+            'レースコンディションやエラーハンドリング（タイムアウト・再試行）を設計する。',
+            'UTF-8を全体で統一し、API/DB/ファイルでエンコーディングを明示する。',
+            '独立デプロイやスケーリングの柔軟性、チーム分離で開発速度向上。',
+            'スレッドセーフ性が向上し、バグの局所化と予測可能性が高まる。',
+            'lockfileや依存の固定、互換性テスト、アップグレード計画で管理。',
+            '自動テスト（ユニット＋統合）の実行が必須。',
+            '構造化ログと適切なログレベル、機密情報はマスクすること。',
+            'レイテンシ（応答時間）とスループット、CPU/メモリの利用状況を確認する。',
+            'public static int safeLen(String s) { return s == null ? 0 : s.length(); }',
+            'function unique(arr){ return Array.from(new Set(arr)); }',
+            '@RestController @RequestMapping("/api") public class DemoController { @GetMapping("/hello") public String hello(){ return "ok"; } }',
+            'String sql = "SELECT id,name FROM users WHERE id = ?"; PreparedStatement ps = conn.prepareStatement(sql); ps.setInt(1, userId);',
+            'async function fetchAndLog(url){ try { const r = await fetch(url); console.log(await r.json()); } catch(e){ console.error(e); } }',
+            'public List<Integer> sortList(List<Integer> a){ List<Integer> b = new ArrayList<>(a); Collections.sort(b); return b; }',
+            'function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }',
+            'try (BufferedReader r = Files.newBufferedReader(Paths.get(path))) { String l; while((l=r.readLine())!=null){} } catch(IOException e){ logger.error("error",e); }',
+            'const obj = JSON.parse(jsonStr); const name = obj.name;',
+            'PreparedStatement ps = conn.prepareStatement("SELECT * FROM t WHERE x=?"); ps.setString(1,val); ResultSet rs = ps.executeQuery();',
+            'function max(arr){ return arr.reduce((m,x)=>x>m?x:m, arr[0]); }',
+            'public String reverse(String s){ return new StringBuilder(s).reverse().toString(); }',
+            'トークン分解→署名検証→exp等クレーム検証→ユーザID取得。ライブラリで署名を検証する。',
+            'function fact(n){ return n<=1?1:n*fact(n-1); }',
+            'AtomicInteger cnt = new AtomicInteger(0); cnt.incrementAndGet();',
+            'autoCommitを切り、バッチサイズ単位でexecuteBatch()+commitする。',
+            'function paginate(items,page,size){ const from=(page-1)*size; return items.slice(from,from+size); }',
+            'try { /* ... */ } catch(Exception e){ logger.error("処理失敗", e); }',
+            'for (const id of ids) { await processAsync(id); } // 並列はPromise.all等を検討',
+            'function safeLen(s){ return s == null ? 0 : s.length; }'
+        ];
+        const qa = commonQuestions.map((q, i) =>
+            `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px"><div style="font-weight:700">Q${i+1}. ${escapeHtml(q)}</div><div style="margin-top:8px"><pre style="white-space:pre-wrap">${escapeHtml(commonAnswers[i]||'')}</pre></div></div>`
+        ).join('\n');
+        return renderPage(req, res, '入社前テスト 模範解答（共通）', 'Q1〜Q40 質問と模範解答', `
+            <div class="card-enterprise">
+                <h5 style="margin-bottom:12px">入社前テスト - 質問と模範解答（共通）</h5>
+                <p style="color:var(--muted)">各設問に対する簡潔な模範解答を質問→解答の順で表示します。</p>
+                ${qa}
+                <div style="margin-top:12px;display:flex;justify-content:flex-end"><a class="btn btn-primary" href="/pretest/answers">言語一覧に戻る</a></div>
+            </div>
+        `);
+    }
+
     const langs = ['java','javascript','python','php','csharp','android','swift'];
     if (!langs.includes(lang)) return res.status(404).send('Not found');
 
@@ -492,522 +594,280 @@ router.get('/pretest/answers/common', requireLogin, (req, res) => {
     `);
 });
 
-// Language-specific interview + script pretest pages
-router.get('/pretest/:lang', requireLogin, (req, res) => {
+// Language-specific interview + script pretest pages（候補者は未ログインのためrequireLoginなし）
+// 新形式: 選択式20問（Q1-Q20）+ 記述式10問（Q21-Q30）= 満点30点
+router.get('/pretest/:lang', (req, res) => {
     const lang = (req.params.lang || '').toLowerCase();
-    const langs = ['java','javascript','python','php','csharp','android','swift'];
-    if (!langs.includes(lang)) return res.status(404).send('Not found');
+    const { LANG_TESTS } = require('../lib/pretestQuestions');
+    if (!LANG_TESTS[lang]) return res.status(404).send('Not found');
+    const conf = LANG_TESTS[lang];
 
-    // expanded collections per language: 10 interview, 10 basics, 5 env, 15 scripts (total 40)
-    const config = {
-        java: {
-            title: 'Java 面談 + スクリプト課題',
-            intro: 'Java の現場で問われる実務的な設問と長めのスクリプト課題です。回答は行番号やコメントで記述してください。',
-            interview: [
-                'チームでの開発経験で心がけているコミュニケーション方法を述べてください。',
-                'コードレビューで最も重視する点は何ですか？',
-                'タスクの見積りでよく使う手法を説明してください。',
-                '障害発生時の優先対応手順を簡潔に述べてください。',
-                'CI/CDパイプラインで必須だと思うステップを1つ挙げてください。',
-                'ユニットテストと結合テストの違いを説明してください。',
-                '技術的負債がたまった場合の対処方針を述べてください。',
-                'オブジェクト指向設計で気をつけている点を1つ述べてください。',
-                'パフォーマンス問題が発生したときの基本的な調査手順を述べてください。',
-                '新しいライブラリ導入時のチェック項目を簡潔に述べてください.'
-            ],
-            basics: [
-                'JVMのGCの基本動作を説明してください。',
-                'finalとfinallyの違いを説明してください。',
-                'スレッドとプロセスの違いを説明してください。',
-                '例外処理の基本的な構成を述べてください。',
-                'コレクションフレームワークのMapとSetの違いを説明してください。',
-                'シリアライズの目的を述べてください。',
-                'try-with-resourcesの利点を説明してください。',
-                'インターフェースと抽象クラスの使い分けを説明してください。',
-                '同期化(synchronized)の基本を説明してください。',
-                'JDBCでの基本的なクエリ実行の流れを述べてください.'
-            ],
-            env: [
-                'Maven/Gradle のどちらを使うか判断する基準を述べてください。',
-                'ローカルでの JDK セットアップ手順（概略）を説明してください。',
-                '環境変数とプロパティファイルの使い分け方を述べてください。',
-                'アプリケーションのログ設定を行う手順を簡潔に述べてください。',
-                'デバッグ実行（ブレークポイント）の基本的なやり方を説明してください.'
-            ],
-            scripts: [
-                { text: `// Java script 1\npublic class Util {\n  public static int safeLen(String s){ return s==null?0:s.length(); }\n}\n// 指摘と改善点を述べてください`, example: '入力: null -> 期待出力: 0; 入力: "abc" -> 期待出力: 3' },
-                { text: `// Java script 2\nimport java.util.*;\npublic class Calc {\n  public int sum(List<Integer> a){ int r=0; for(int x:a) r+=x; return r; }\n}\n// 質問: 大きなリストでメモリを抑える改善案を示してください`, example: '入力: [1,2,3] -> 期待出力: 6 (合計)；改善例: ストリーム処理で逐次計算' },
-                                // replace Java script 3 to be analyze mode
-                                { text: `// Java script 3
-                public class Cache {
-                  private Map<String,String> map = new HashMap<>();
-                  public void put(String k,String v){ map.put(k,v); }
-                }
-                // 質問: スレッド安全性の問題点と改善を示してください`, example: '入力: concurrentアクセス -> 期待出力: 安全に格納されること（改善: ConcurrentHashMap）', mode: 'analyze' },
-                { text: `// Java script 4\npublic class UserService {\n  private List<String> users;\n  public void add(String u){ users.add(u); }\n}\n// 質問: NPEの原因と対策を述べてください`, example: '入力: users が null の場合 -> エラー（改善: コンストラクタで初期化 or nullチェック）' },
-                { text: `// Java script 5\n// PreparedStatementを使った安全なSELECTの骨組みを記述してください`, example: '入力: userId=123 -> 期待出力: ユーザー行（例: id,name）' },
-                { text: `// Java script 6\n// ファイルを逐次読み込み、メモリを節約する実装例を示してください`, example: '入力: 大きなファイル -> 期待出力: 行ごとに処理してメモリが増えないこと' },
-                { text: `// Java script 7\n// 複数スレッドから同時にアクセスされるキューの実装（概念で可）を説明してください`, example: '入力: 生成タスク/消費タスク -> 期待出力: 安全にキューが動く（例: BlockingQueue）' },
-                { text: `// Java script 8\n// 大量データをバルク挿入する際の注意点と擬似コードを示してください`, example: '入力: 10万行 -> 期待出力: バッチ/トランザクションで高速に挿入されること' },
-                { text: `// Java script 9\n// Transactionを使った処理のロールバック理由とサンプルを示してください`, example: '入力: 複数更新の途中で失敗 -> 期待出力: 全てロールバックされる' },
-                { text: `// Java script 10\n// JSONをパースして特定フィールドを抽出する例（擬似コード）`, example: '入力: {"id":1,"name":"A"} -> 期待出力: name = "A"' },
-                { text: `// Java script 11\n// メモリリークが起きるケースの例と検出方法を述べてください`, example: '入力: 大量のオブジェクトを参照し続ける -> 期待出力: メモリが増え続ける（検出: ヒープダンプ）' },
-                { text: `// Java script 12\n// 非同期I/Oを使う場面とサンプル（概念で可）を示してください`, example: '入力: ネットワークI/O多数 -> 期待出力: 非同期で高並列に処理されること' },
-                { text: `// Java script 13\n// キャッシュの有効期限管理の設計案を示してください`, example: '入力: キャッシュヒット/ミス -> 期待出力: TTLで更新される設計' },
-                { text: `// Java script 14\n// 大きな文字列を効率よく操作する方法を示してください`, example: '入力: 文字列連結大量 -> 期待出力: StringBuilderを使用して効率化' },
-                { text: `// Java script 15\n// 既存APIのパフォーマンスを測定する簡単なベンチマーク方法を説明してください`, example: '入力: APIエンドポイント -> 期待出力: リクエスト/レスポンスタイムの統計（例: 1000 req）' }
-            ]
-        },
-        javascript: {
-            title: 'JavaScript 面談 + スクリプト課題',
-            intro: 'JavaScript の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'チーム開発でのコードスタイル合意をどう進めますか？',
-                '非同期実装で注意する点を1つ挙げてください。',
-                'バグ対応での優先順位のつけ方を説明してください。',
-                'コードレビューでの良い指摘例を1つ述べてください。',
-                'フロントとバックでの契約（API仕様）をどう管理しますか？',
-                'リリースのロールバック手順を簡潔に説明してください。',
-                'ステート管理でよくある問題点を1つ述べてください。',
-                'セキュリティで気をつけるべきポイントを1つ述べてください。',
-                '依存ライブラリの脆弱性対応の流れを述べてください。',
-                'パフォーマンス改善で使うツールや手法を1つ挙げてください.'
-            ],
-            basics: [
-                'イベントループの基本動作を説明してください。',
-                'this の振る舞いが変わる場面を2つ挙げてください。',
-                'Promiseとasync/awaitの違いを説明してください。',
-                'クロージャーの利点を述べてください。',
-                'メモリリークの原因の例を挙げてください。',
-                'ESモジュールとCommonJSの違いを説明してください。',
-                'ブラウザでのCORSの基本を説明してください。',
-                'DOM操作のパフォーマンス注意点を述べてください。',
-                'デバッガでのブレークポイントの使い方を説明してください。',
-                'Node.jsでのストリーム処理の利点を述べてください.'
-            ],
-            env: [
-                'Node.js 環境をインストールする手順（概略）を述べてください。',
-                'パッケージ管理（npm/yarn）の基本運用ルールを説明してください。',
-                'ローカルでの環境切替（envファイルなど）をどう行いますか？',
-                'ビルドツール（webpack等）の導入判断基準を述べてください。',
-                'ローカルでのAPIモックの作り方を簡潔に説明してください.'
-            ],
-            scripts: [
-                { text: `// JS script 1\nfunction debounce(fn,ms){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),ms); } }\n// 質問: 改善点を述べてください`, example: '入力: 頻繁に発火するイベント -> 期待出力: debounceで1回に抑えられる' },
-                { text: `// JS script 2\nconst a = [1,2,3]; const r = a.map(x=>x*2).filter(x=>x>3);\n// 質問: もっと効率的にする案を述べてください`, example: '入力: [1,2,3] -> 期待出力: [4,6] (一度のループで処理可能)' },
-                { text: `// JS script 3\nasync function fetchAll(urls){ return Promise.all(urls.map(u=>fetch(u))); }\n// 質問: エラーハンドリングを加える案を述べてください`, example: '入力: 複数URL -> 期待出力: 全て成功時は配列、失敗時は個別にエラーハンドリング' },
-                                // replace JS script 4 to be analyze mode
-                                { text: `// JS script 4
-                // ストリームを使って大きなファイルを処理するサンプル（概念可）`, example: '入力: 大きなログファイル -> 期待出力: ストリームで逐次処理しメモリ保護', mode: 'analyze' },
-                { text: `// JS script 5\n// クロージャーとメモリリークに関する例と対策を示してください`, example: '入力: 大量のクロージャ格納 -> 期待出力: メモリ増加（対策: 解放/弱参照）' },
-                { text: `// JS script 6\n// 非同期キューで逐次処理する仕組み（擬似コード）`, example: '入力: タスク列 -> 期待出力: 直列に処理される（並列制御）' },
-                { text: `// JS script 7\n// JWTの検証フローと実装例（擬似コード）`, example: '入力: トークン文字列 -> 期待出力: 有効/無効の判定とペイロード取得' },
-                { text: `// JS script 8\n// APIレスポンスをページネートする実装（概念）`, example: '入力: 大量データ+page=2 -> 期待出力: 2ページ目の部分集合を返す' },
-                { text: `// JS script 9\n// フロントの入力サニタイズ例と注意点`, example: '入力: <script> -> 期待出力: エスケープされ表示安全' },
-                { text: `// JS script 10\n// サーバサイドでのキャッシュ設計の簡単な例`, example: '入力: 頻繁参照のデータ -> 期待出力: キャッシュヒットで遅延低下' },
-                { text: `// JS script 11\n// 高頻度イベントの最適化（throttle/debounceの比較）`, example: '入力: スクロールイベント -> 期待出力: throttleで間引き表示更新' },
-                { text: `// JS script 12\n// 大きな配列を効率よく検索するアルゴリズムの擬似コード`, example: '入力: 大配列+検索値 -> 期待出力: インデックス利用で高速化' },
-                { text: `// JS script 13\n// 再帰とループのスタック/性能の違いを説明し、例を示してください`, example: '入力: 階乗計算 -> 期待出力: ループの方が深い再帰より安全' },
-                { text: `// JS script 14\n// エラー監視（例: Sentry）導入のメリットと初期設定例`, example: '入力: 例外発生 -> 期待出力: エラーが監視ダッシュボードに送信される' },
-                { text: `// JS script 15\n// 非同期処理でのリトライ戦略を実装する擬似コード`, example: '入力: ネットワーク失敗 -> 期待出力: 指定回数リトライして成功/失敗判定' }
-            ]
-        },
-        python: {
-            title: 'Python 面談 + スクリプト課題',
-            intro: 'Python の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'チームでのコードの整合性を保つためにどんなルールを設けますか？',
-                'データ処理パイプラインで注意する点を1つ述べてください。',
-                '例外発生時のロギング方針を説明してください。',
-                '大規模データの処理で気をつける点を述べてください。',
-                'テスト自動化の基本運用を述べてください。',
-                'パフォーマンスチューニングでまず見る点を述べてください。',
-                '外部APIの障害時のフォールバック戦略を述べてください。',
-                'コードレビューで見るべき性能上の懸念点を1つ述べてください。',
-                'パッケージ依存管理の注意点を述べてください。',
-                'デプロイ前のチェック項目を1つ述べてください.'
-            ],
-            basics: [
-                'リストとタプルの違いを説明してください。',
-                'GILとは何かを簡潔に説明してください。',
-                'デコレータの使い所を1つ挙げてください。',
-                'with文の利点を説明してください。',
-                '例外処理のベストプラクティスを1つ述べてください。',
-                'ジェネレータの利点を説明してください。',
-                'コンテキストマネージャの使い方を述べてください。',
-                '型ヒントの利点を説明してください。',
-                '仮想環境の作成と利用法を説明してください。',
-                'ファイルI/Oの注意点を1つ述べてください.'
-            ],
-            env: [
-                'venvでの仮想環境作成と activate の手順を述べてください。',
-                '依存関係をrequirements.txtで管理する方法を説明してください。',
-                'DockerでPythonアプリを動かす基本的な流れを説明してください。',
-                'ローカルの環境変数設定方法を述べてください。',
-                'デバッグ用のブレークポイントの使い方を説明してください.'
-            ],
-            scripts: [
-                { text: `# Python script 1\ndef read_lines(path):\n    with open(path) as f:\n        for l in f:\n            yield l.strip()\n# 質問: メモリ節約の理由と改善点を述べてください`, example: '入力: 大きなファイル -> 期待出力: 各行を逐次yieldしメモリを節約' },
-                                // replace Python script 2 to be analyze mode
-                                { text: `# Python script 2
-                import json
-                def parse(data):
-                    return json.loads(data)
-                # 質問: 大きなJSON処理時の改善案を述べてください`, example: '入力: 大きなJSON文字列 -> 期待出力: ijson等のストリーミングパーサで逐次処理', mode: 'analyze' },
-                { text: `# Python script 3\nfrom concurrent.futures import ThreadPoolExecutor\n# 質問: I/Oバウンド処理でのThreadPoolの利用例を示してください`, example: '入力: 複数URL -> 期待出力: ThreadPoolで並列にfetchしてレスポンスを集約' },
-                { text: `# Python script 4\n# データベースからバルク取得して処理する場合の注意点を述べてください`, example: '入力: 100万行 -> 期待出力: チャンクで取得してメモリを節約' },
-                { text: `# Python script 5\n# メモリ使用量を計測する簡単な方法を述べてください`, example: '入力: スクリプト実行 -> 期待出力: psutilでメモリをログ取得' },
-                { text: `# Python script 6\n# 再帰を使う場面とループでの置換案を述べてください`, example: '入力: 階乗計算 -> 期待出力: ループでの実装によりスタックオーバーフロー回避' },
-                { text: `# Python script 7\n# 非同期処理(asyncio)の基本的な例と注意点を示してください`, example: '入力: I/O多数 -> 期待出力: asyncioで高並列に処理' },
-                { text: `# Python script 8\n# 大きなファイルをチャンクで処理する擬似コードを示してください`, example: '入力: 大ファイル -> 期待出力: read(size)でチャンク処理しメモリ節約' },
-                { text: `# Python script 9\n# データベース接続のプール利用の利点を説明してください`, example: '入力: 多数接続 -> 期待出力: コネクションプールで接続確立コストを削減' },
-                { text: `# Python script 10\n# ロギングの設定と重要なポイントを示してください`, example: '入力: エラー発生 -> 期待出力: stacktraceを含むログが保存される' },
-                { text: `# Python script 11\n# パフォーマンスプロファイリングの簡単な方法を述べてください`, example: '入力: スクリプト -> 期待出力: cProfileで関数別実行時間が得られる' },
-                { text: `# Python script 12\n# サードパーティライブラリ導入時の調査項目を述べてください`, example: '入力: 新ライブラリ -> 期待出力: ライセンス/保守状況/脆弱性を確認' },
-                { text: `# Python script 13\n# APIのレート制限に対する設計案を述べてください`, example: '入力: API呼び出し多数 -> 期待出力: バックオフとキューで制御' },
-                { text: `# Python script 14\n# テスト用モックの作成と利用法を説明してください`, example: '入力: 外部API呼び出し -> 期待出力: モックで安定したテストを実行' },
-                { text: `# Python script 15\n# 長時間実行バッチ処理の監視と再実行戦略を述べてください`, example: '入力: バッチ失敗 -> 期待出力: 再実行キューと通知で復旧' }
-            ]
-        },
-        php: {
-            title: 'PHP 面談 + スクリプト課題',
-            intro: 'PHP の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'プロジェクトでのコード品質担保のために行っていることを述べてください。',
-                '脆弱性対応の流れを簡潔に述べてください。',
-                'セッション管理で気をつける点を述べてください。',
-                'パフォーマンス劣化時の初動対応を述べてください。',
-                '開発と本番での設定切替をどう管理しますか？',
-                'デプロイ作業でのチェック項目を1つ述べてください。',
-                '外部サービス障害時のフェイルオーバー案を述べてください。',
-                'DBマイグレーションの運用上の注意点を述べてください。',
-                'エラートラッキングの導入メリットを述べてください。',
-                'チームでのタスク分担の工夫を述べてください.'
-            ],
-            basics: [
-                '文字列連結の方法と注意点を述べてください。',
-                'PDOの利点を説明してください。',
-                'XSS対策の基本を述べてください。',
-                'セッション固定攻撃への対策を述べてください。',
-                'Composerの使い方と利点を説明してください。',
-                '名前空間(Namespace)の利点を説明してください。',
-                '例外処理の基本を述べてください。',
-                'ファイルアップロード時のセキュリティ注意点を述べてください。',
-                '文字コード（UTF-8等）の注意点を述べてください。',
-                '簡単なルーティングの仕組みを説明してください.'
-            ],
-            env: [
-                'PHPのローカル環境（composer含む）セットアップ手順を概説してください。',
-                'php.iniでよく変更する設定と理由を1つ述べてください。',
-                '本番用のログ設定の注意点を述べてください。',
-                'デバッグツール（Xdebug等）の基本的な使い方を説明してください。',
-                '依存ライブラリの脆弱性対応フローを説明してください.'
-            ],
-            scripts: [
-                { text: `<?php\n// PHP script 1\nfunction safe_trim($s){ return $s===null? '':trim($s); }\n// 質問: 改善点を述べてください`, example: '入力: null -> 期待出力: ""; 入力: " a " -> 期待出力: "a"' },
-                { text: `<?php\n// PHP script 2\n// 大きなCSVを逐次読み込む例（擬似コード）`, example: '入力: 大きなCSV -> 期待出力: 逐次処理でメモリ使用量が一定' },
-                { text: `<?php\n// PHP script 3\n// セッション管理と安全な設定例を示してください`, example: '入力: セッションID -> 期待出力: セキュア属性付きcookieで保護' },
-                { text: `<?php\n// PHP script 4\n// PDOでのプリペアドステートメント例`, example: '入力: ユーザーID -> 期待出力: プリペアドでSQLインジェクション防止' },
-                { text: `<?php\n// PHP script 5\n// ファイルアップロードのバリデーション例`, example: '入力: アップロードファイル -> 期待出力: MIME/typeとサイズ検査を通過' },
-                { text: `<?php\n// PHP script 6\n// エラーログの記録とローテーションの考え方`, example: '入力: 例外発生 -> 期待出力: ログに記録されローテーションでサイズ管理' },
-                { text: `<?php\n// PHP script 7\n// APIのレスポンスキャッシュ設計（簡潔に）`, example: '入力: 高頻度リクエスト -> 期待出力: キャッシュヒットで応答高速化' },
-                { text: `<?php\n// PHP script 8\n// マイグレーションの基本手順（概念）`, example: '入力: スキーマ変更 -> 期待出力: ロールフォワード/ロールバック用SQLを作成' },
-                { text: `<?php\n// PHP script 9\n// 大量データのバルクインサートを高速化する方法`, example: '入力: CSV大量 -> 期待出力: バルクインサートで高速化' },
-                { text: `<?php\n// PHP script 10\n// 認証トークンの検証フローとサンプル`, example: '入力: JWT -> 期待出力: 検証に成功すればペイロードを取得' },
-                { text: `<?php\n// PHP script 11\n// 非同期処理のためのジョブキューの設計案`, example: '入力: 重い処理 -> 期待出力: ジョブキューに投げて非同期処理' },
-                { text: `<?php\n// PHP script 12\n// サニタイズとエスケープの違いを示す例`, example: '入力: <script> -> 期待出力: 表示時はエスケープ、DBはサニタイズ' },
-                { text: `<?php\n// PHP script 13\n// ローカル開発環境のDocker化のポイント`, example: '入力: Dockerfile -> 期待出力: 環境一貫で起動可能' },
-                { text: `<?php\n// PHP script 14\n// エラーハンドリングとユーザー向けメッセージ設計`, example: '入力: 例外発生 -> 期待出力: ユーザー向けに分かりやすいメッセージ' },
-                { text: `<?php\n// PHP script 15\n// パフォーマンス計測の簡単な方法を説明してください`, example: '入力: API -> 期待出力: レスポンスタイム測定でボトルネック特定' }
-            ]
-        },
-        csharp: {
-            title: 'C# 面談 + スクリプト課題',
-            intro: 'C# の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'チームでの設計レビューの進め方を説明してください。',
-                '非同期処理での注意点を1つ述べてください。',
-                '例外伝播とハンドリングの方針を述べてください。',
-                '依存注入(DI)の利点を説明してください。',
-                'ユニットテストの実行タイミングを説明してください。',
-                'APIバージョニングの運用方法を述べてください。',
-                'ログレベル設計での基本方針を述べてください。',
-                'データベース変更時のロールバック方針を述べてください。',
-                'パフォーマンスボトルネックの特定手順を述べてください。',
-                'リファクタリングの判断基準を説明してください.'
-            ],
-            basics: [
-                '値型と参照型の違いを説明してください。',
-                'async/awaitの基本動作を説明してください。',
-                'LINQの利点を1つ述べてください。',
-                'ガーベジコレクションの基本を説明してください。',
-                'インターフェースと抽象クラスの使い分けを述べてください。',
-                'デリゲートの用途を説明してください。',
-                '例外処理のベストプラクティスを述べてください。',
-                'シリアライズの方法を説明してください。',
-                'スレッドセーフなコレクションの利用法を述べてください。',
-                '依存関係注入の利点を説明してください.'
-            ],
-            env: [
-                'Visual Studioでのプロジェクト作成手順を概説してください。',
-                '.NET SDK のインストール手順を説明してください。',
-                'NuGetパッケージの管理方法を説明してください。',
-                'ローカルデバッグとブレークポイントの使い方を説明してください。',
-                'CIでのビルドとテスト実行手順を簡潔に述べてください.'
-            ],
-            scripts: [
-                { text: `// C# script 1\nusing System;\npublic class Util{ public static int Len(string s)=> s==null?0:s.Length; }\n// 質問: 改善点を述べてください`, example: '入力: null -> 期待出力: 0; 入力: "abc" -> 期待出力: 3' },
-                { text: `// C# script 2\n// 非同期I/Oの簡単な例と注意点を示してください`, example: '入力: I/O多数 -> 期待出力: async/awaitでスレッド効率を改善' },
-                { text: `// C# script 3\n// DIコンテナを使った簡単な構成例（概念）`, example: '入力: サービス定義 -> 期待出力: DIで疎結合に実装' },
-                { text: `// C# script 4\n// 大量データを処理する際のストリーミング処理例（概念）`, example: '入力: 大量ファイル -> 期待出力: ストリームで逐次処理' },
-                { text: `// C# script 5\n// トランザクション処理の基本例（擬似コード）`, example: '入力: 複数更新 -> 期待出力: 失敗時は全ロールバック' },
-                { text: `// C# script 6\n// 並列処理での競合回避の方法を説明してください`, example: '入力: 共有変数 -> 期待出力: ロック/Concurrentコレクションで回避' },
-                { text: `// C# script 7\n// ロギング設計のポイントを示してください`, example: '入力: 例外発生 -> 期待出力: 構造化ログを記録' },
-                { text: `// C# script 8\n// メモリプロファイリングの基本的な進め方を説明してください`, example: '入力: メモリ増加 -> 期待出力: ヒープダンプで解析' },
-                { text: `// C# script 9\n// Web APIのパフォーマンス改善案を述べてください`, example: '入力: レスポンス遅延 -> 期待出力: キャッシュやSQL最適化' },
-                { text: `// C# script 10\n// シリアライズで生じる問題と対応策を述べてください`, example: '入力: 循環参照オブジェクト -> 期待出力: カスタムシリアライズで回避' },
-                { text: `// C# script 11\n// バッチ処理の監視と再実行戦略を述べてください`, example: '入力: バッチ失敗 -> 期待出力: 再実行とアラート' },
-                { text: `// C# script 12\n// キャッシュ無効化の設計案を示してください`, example: '入力: データ更新 -> 期待出力: キャッシュを適切に失効' },
-                { text: `// C# script 13\n// 依存関係の脆弱性対応フローを説明してください`, example: '入力: 脆弱性発見 -> 期待出力: バージョンアップとテスト' },
-                { text: `// C# script 14\n// データベース接続のプーリングの利点を説明してください`, example: '入力: 多数接続 -> 期待出力: プールで接続確立コスト削減' },
-                { text: `// C# script 15\n// テストカバレッジ向上のための施策を述べてください`, example: '入力: 未テスト箇所 -> 期待出力: ユニット/統合テスト追加' }
-            ]
-        },
-        android: {
-            title: 'Android 面談 + スクリプト課題',
-            intro: 'Android（Kotlin/Java） の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'Activity/Fragmentのライフサイクル管理で注意している点を述べてください。',
-                'メモリリークを防ぐ方法を1つ述べてください。',
-                'Async処理でUIを安全に更新する方法を述べてください。',
-                'ビルドの最適化（APK縮小等）で意識することを述べてください。',
-                '依存関係のバージョン管理の方針を述べてください。',
-                'テスト自動化の範囲をどのように決めますか？',
-                'リリース時の署名と証明書管理について簡潔に述べてください。',
-                'バックグラウンド処理の適切な実装方法を述べてください。',
-                'Gradle設定で注意する点を1つ述べてください。',
-                'パフォーマンス監視のための指標を1つ挙げてください.'
-            ],
-            basics: [
-                'Activityの主要なライフサイクルメソッドを2つ挙げてください。',
-                'ViewModelの利点を説明してください。',
-                'リソース管理（strings, dimens等）の重要性を説明してください。',
-                'メインスレッドと背景スレッドの使い分けを説明してください。',
-                '依存注入（Hilt等）の利点を述べてください。',
-                'Androidでの永続化方法（簡潔に）を述べてください。',
-                'UIスレッドでの重い処理の回避方法を述べてください。',
-                'メモリリーク検出ツールの例を挙げてください。',
-                'Gradleのビルドタイプとフレーバーの使い分けを説明してください。',
-                'アプリサイズ削減の基本的な施策を述べてください.'
-            ],
-            env: [
-                'Android Studio のプロジェクト作成と設定の基本手順を述べてください。',
-                'エミュレータと実機の違いと使い分けを説明してください。',
-                'Gradleのローカルキャッシュ活用の利点を述べてください。',
-                '署名鍵（keystore）の管理の注意点を説明してください。',
-                'CI上でのAndroidビルドの注意点を1つ述べてください.'
-            ],
-            scripts: [
-                { text: `// Android script 1\n// Activityの初期化で発生し得るメモリリークの例と対策を説明してください`, example: '入力: large bitmap load -> 期待出力: Bitmapを適切に解放/weak referenceを利用' },
-                { text: `// Android script 2\n// 非同期でデータを取得しViewに反映するフロー（擬似コード）`, example: '入力: API応答 -> 期待出力: UIスレッドで安全に更新' },
-                { text: `// Android script 3\n// 大きな画像を効率よく表示する方法を示してください`, example: '入力: high-res image -> 期待出力: Glide等でリサイズ/キャッシュ' },
-                { text: `// Android script 4\n// データベース移行（Room）の基本手順を示してください`, example: '入力: スキーマ変更 -> 期待出力: マイグレーションSQLを用意' },
-                { text: `// Android script 5\n// バッテリー最適化で注意する点を述べてください`, example: '入力: 背景同期 -> 期待出力: WorkManagerでバッチ化/最適化' },
-                { text: `// Android script 6\n// バックグラウンドでの同期処理（WorkManager等）の設計例`, example: '入力: 取得頻度高 -> 期待出力: ジョブを合算して効率化' },
-                { text: `// Android script 7\n// UIのレスポンスを改善する具体策を述べてください`, example: '入力: リスト表示遅延 -> 期待出力: DiffUtil/RecyclerView最適化' },
-                { text: `// Android script 8\n// マルチスレッドでのデータ競合を防ぐ方法を説明してください`, example: '入力: 同一データ更新 -> 期待出力: 同期/atomic操作で解決' },
-                { text: `// Android script 9\n// ネットワーク障害時のリトライ戦略を示してください`, example: '入力: 通信エラー -> 期待出力: 指数バックオフで再試行' },
-                { text: `// Android script 10\n// 大量データをページネートして処理する設計を示してください`, example: '入力: dataset -> 期待出力: PageSource/BoundaryCallbackで分割' },
-                { text: `// Android script 11\n// モジュール化（feature module等）の利点を説明してください`, example: '入力: large app -> 期待出力: モジュール分割でビルド短縮' },
-                { text: `// Android script 12\n// アプリの起動時間短縮のための施策を述べてください`, example: '入力: cold start slow -> 期待出力: 遅延初期化や軽量化で改善' },
-                { text: `// Android script 13\n// デバッグ時のログ出力設計の注意点を述べてください`, example: '入力: 大量ログ -> 期待出力: レベル/タグでフィルタ可能な設計' },
-                { text: `// Android script 14\n// プロガード設定で注意する点を述べてください`, example: '入力: リフレクション利用 -> 期待出力: 必要箇所をkeepで保護' },
-                { text: `// Android script 15\n// リリースプロセスでのチェックリストを示してください`, example: '入力: リリース前 -> 期待出力: テスト/署名/ストア提出チェック完了' }
-            ]
-        },
-        swift: {
-            title: 'Swift 面談 + スクリプト課題',
-            intro: 'Swift の実務的な設問と長めのスクリプト課題です。回答はコード内コメントで記述してください。',
-            interview: [
-                'Optionalの使い所と注意点を説明してください。',
-                'ARCの基本動作と注意点を述べてください。',
-                'クロージャのキャプチャリストの使い方を説明してください。',
-                '値型と参照型の違いの実務上の影響を述べてください。',
-                'エラーハンドリングの基本方針を述べてください。',
-                '依存管理（CocoaPods/SwiftPM）の使い分けを述べてください。',
-                'メモリプロファイリングの基本手順を述べてください。',
-                'APIレスポンスのパースでの注意点を述べてください。',
-                'バックグラウンド処理の適切な設計例を述べてください。',
-                'アプリのリリース署名の注意点を述べてください.'
-            ],
-            basics: [
-                'Optionalのアンラップ方法をいくつか挙げてください。',
-                'ARCによるメモリ管理の基本を説明してください。',
-                '構造体とクラスの違いを説明してください。',
-                'エラーハンドリング（do/try/catch）の使い方を説明してください。',
-                'クロージャの循環参照を避ける方法を述べてください。',
-                '型推論と明示的型指定の使い分けを述べてください。',
-                '非同期処理（async/await）の基本を説明してください。',
-                'パッケージ管理の基本を説明してください。',
-                'UI更新はどのスレッドで行うべきか説明してください。',
-                'デバッグとクラッシュログの基本的な取得方法を述べてください.'
-            ],
-            env: [
-                'Xcodeでのプロジェクト作成と基本設定手順を述べてください。',
-                'Simulatorと実機の違いを説明してください。',
-                'コード署名とプロビジョニングの基本手順を述べてください。',
-                '依存管理（SwiftPM等）の基本運用を説明してください。',
-                'TestFlightを使った配布の流れを簡潔に説明してください.'
-            ],
-            scripts: [
-                { text: `// Swift script 1\nimport Foundation\nfunc safeAppend(_ arr: inout [String]?, _ v: String){ if arr==nil{ arr=[] } arr?.append(v) }\n// 質問: 改善点を述べてください`, example: '入力: nil -> 期待出力: [] に初期化して追加' },
-                { text: `// Swift script 2\n// 非同期処理とエラーハンドリングの例（概念）`, example: '入力: ネットワークリクエスト -> 期待出力: async/awaitでエラー処理' },
-                { text: `// Swift script 3\n// 大きな画像の読み込みとメモリ対策の例を述べてください`, example: '入力: high-res image -> 期待出力: ダウンサンプリングして表示' },
-                { text: `// Swift script 4\n// データの永続化(Codable/CoreData)の使い分けを説明してください`, example: '入力: simple JSON -> 期待出力: Codableで簡潔にパース' },
-                { text: `// Swift script 5\n// バックグラウンドでのネットワーク処理の設計案を述べてください`, example: '入力: 逐次取得 -> 期待出力: バックグラウンドで取得しUIに通知' },
-                { text: `// Swift script 6\n// メモリ使用量を抑えるパターンをいくつか挙げてください`, example: '入力: 大データ処理 -> 期待出力: ストリーミング/遅延評価を利用' },
-                { text: `// Swift script 7\n// 非同期ストリーム処理の概念を説明してください`, example: '入力: 継続的データ -> 期待出力: AsyncSequenceで順次処理' },
-                { text: `// Swift script 8\n// デバッグ時のログ出力とフィルタリングの工夫を述べてください`, example: '入力: 多数ログ -> 期待出力: カテゴリ別でフィルタ可能にする' },
-                { text: `// Swift script 9\n// ネットワークのリトライ戦略を実装する擬似コード`, example: '入力: 通信エラー -> 期待出力: 指数バックオフで再試行' },
-                { text: `// Swift script 10\n// UIのパフォーマンスを改善する具体的施策を述べてください`, example: '入力: スクロールラグ -> 期待出力: 描画負荷を軽減する' },
-                { text: `// Swift script 11\n// モジュール化の利点と実装例を述べてください`, example: '入力: large app -> 期待出力: 機能別モジュール化で開発効率向上' },
-                { text: `// Swift script 12\n// データ移行(Migration)の注意点を述べてください`, example: '入力: バージョンアップ -> 期待出力: マイグレーションでデータ整合性を保つ' },
-                { text: `// Swift script 13\n// エラー収集とクラッシュレポートの初期設定例`, example: '入力: クラッシュ -> 期待出力: レポートが送信され監視される' },
-                { text: `// Swift script 14\n// テスト自動化の範囲決めの基準を示してください`, example: '入力: 重要機能 -> 期待出力: 自動テストで継続検証' },
-                { text: `// Swift script 15\n// リリース前のチェックリストを示してください`, example: '入力: リリース準備 -> 期待出力: テスト/署名/配布準備が完了' }
-            ]
-        }
-    };
+    // 難易度バッジ
+    const diffLabel = { VE: '非常に易しい', EM: '中間', H: '難しい', VH: '非常に難しい' };
+    const diffColor = { VE: '#22c55e', EM: '#3b82f6', H: '#f59e0b', VH: '#ef4444' };
 
-    const conf = config[lang];
-    // build html: combine interview(10) + basics(10) + env(5) + scripts(15) => 40 items
-    const allQs = [];
-    if (Array.isArray(conf.interview)) allQs.push(...conf.interview);
-    if (Array.isArray(conf.basics)) allQs.push(...conf.basics);
-    if (Array.isArray(conf.env)) allQs.push(...conf.env);
-    if (Array.isArray(conf.scripts)) allQs.push(...conf.scripts);
+    // 選択式 Q1-Q20
+    const mcHtml = conf.mc.map((item, idx) => {
+        const qNum = idx + 1;
+        const badge = `<span style="font-size:10px;font-weight:700;background:${diffColor[item.diff]}22;color:${diffColor[item.diff]};border:1px solid ${diffColor[item.diff]}44;border-radius:999px;padding:1px 8px;margin-left:8px">${diffLabel[item.diff]}</span>`;
+        const opts = item.opts.map(o => {
+            const val = o.charAt(0); // 'A', 'B', 'C', 'D'
+            return `<label class="pt-opt-label"><input type="radio" name="q${qNum}" value="${val}" onchange="ptMarkAnswered(${qNum},this)" style="margin-right:6px"><span>${escapeHtml(o)}</span></label>`;
+        }).join('');
+        return `
+<div class="pt-qcard" id="ptcard-q${qNum}">
+  <div class="pt-qtitle"><span class="pt-qnum">Q${qNum}</span>${badge}<div class="pt-qtext">${escapeHtml(item.q)}</div></div>
+  <div class="pt-opts">${opts}</div>
+</div>`;
+    }).join('');
 
-    // ensure length 40 (pad if necessary)
-    while (allQs.length < 40) allQs.push('追加の設問');
-
-    const interviewHtml = allQs.map((q,idx)=>{
-        const qText = (typeof q === 'string') ? String(q) : (q && q.text ? q.text : String(q));
-        const qExample = (q && typeof q === 'object' && q.example) ? q.example : null;
-        const qMode = (q && typeof q === 'object' && q.mode) ? q.mode : 'fill'; // 'fill' | 'analyze'
-        // first 20 short-answer inputs, next 20 are script questions
-        if (idx < 20) {
-            return `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px"><div style="font-weight:700;margin-bottom:8px">Q${idx+1}. ${escapeHtml(qText)}</div><input type=\"text\" name=\"q${idx+1}\" placeholder=\"数語〜短文で答えてください\" /></div>`;
-        } else {
-            // example: prefer per-question example, fall back to generic per-language hint
-            const example = qExample || (function(){
-                if (lang === 'javascript') return '例: 入力: [1,2,3] → 期待出力: 6 (配列の合計)';
-                if (lang === 'python') return '例: 入力:\n["alice","bob"]\n期待出力:\n2 (要素数など)';
-                if (lang === 'java') return '例: 入力: ["a","b"] → 期待出力: 2 (リストの長さ)';
-                if (lang === 'php') return '例: 入力: "a,b,c" → 期待出力: ["a","b","c"] (CSVパース)';
-                if (lang === 'csharp') return '例: 入力: [1,2,3] → 期待出力: 6 (合計)';
-                if (lang === 'android') return '例: 入力: JSONレスポンス -> 期待出力: パースされたオブジェクト';
-                if (lang === 'swift') return '例: 入力: ["x","y"] -> 期待出力: 2 (配列の長さ)';
-                return '例: 入力→期待出力 を示してください (例: 入力: [1,2,3] → 出力: 6)';
-            })();
-
-            if (qMode === 'analyze') {
-                // show script/read-only and ask for analysis / answer
-                return `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px">
-                            <div style="font-weight:700;margin-bottom:8px">Q${idx+1}. ${escapeHtml(qText)}</div>
-                            <div style=\"background:#f8fafc;border:1px dashed #eef2ff;padding:8px;border-radius:6px;font-family:monospace;white-space:pre-wrap;margin-bottom:8px\">${escapeHtml(String(example))}</div>
-                            <pre style=\"background:#0f172a;color:#f8fafc;padding:12px;border-radius:6px;overflow:auto;font-family:monospace;white-space:pre-wrap;max-height:220px;margin-bottom:8px\">${escapeHtml(String(qText))}</pre>
-                            <textarea name=\"q${idx+1}\" placeholder=\"このスクリプトを読んで回答してください（解析・指摘など）\" style=\"min-height:120px;padding:10px;border-radius:6px;border:1px solid #ddd;font-family:monospace\"></textarea>
-                        </div>`;
-            }
-
-            // default: 'fill' mode - prefill textarea with provided script so candidate edits/implements it
-            return `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px">
-                        <div style="font-weight:700;margin-bottom:8px">Q${idx+1}. ${escapeHtml(qText)}</div>
-                        <div style=\"background:#f8fafc;border:1px dashed #eef2ff;padding:8px;border-radius:6px;font-family:monospace;white-space:pre-wrap;margin-bottom:8px\">${escapeHtml(String(example))}</div>
-                        <textarea name=\"q${idx+1}\" placeholder=\"ここにコードや実装を記述してください\" style=\"min-height:160px;padding:10px;border-radius:6px;border:1px solid #ddd;font-family:monospace\">${escapeHtml(String(qText))}</textarea>
-                    </div>`;
-        }
+    // 記述式 Q21-Q30
+    const essayHtml = conf.essay.map((item, idx) => {
+        const qNum = idx + 21;
+        return `
+<div class="pt-qcard" id="ptcard-q${qNum}">
+  <div class="pt-qtitle"><span class="pt-qnum code">Q${qNum}</span><span style="font-size:10px;font-weight:700;background:#7c3aed22;color:#7c3aed;border:1px solid #7c3aed44;border-radius:999px;padding:1px 8px;margin-left:8px">記述式</span><div class="pt-qtext">${escapeHtml(item.q)}</div></div>
+  <textarea name="q${qNum}" id="pt-q${qNum}" placeholder="簡潔に説明してください" style="width:100%;min-height:110px;padding:10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.9rem;resize:vertical;box-sizing:border-box" oninput="ptMarkAnswered(${qNum},this)"></textarea>
+</div>`;
     }).join('');
 
     renderPage(req, res, conf.title, conf.title, `
-        <style>
-            .pretest-block { -webkit-user-select: none; user-select: none; }
-            .pretest-block input, .pretest-block textarea, .pretest-block button { -webkit-user-select: text; user-select: text; }
-        </style>
-        <script>
-            (function(){
-                function prevent(e){ try{ e.preventDefault(); }catch(_){} }
-                function isEditableTarget(t){ return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); }
-                // contextmenu: allow on editable controls only
-                document.addEventListener('contextmenu', function(e){ if (!isEditableTarget(e.target)) prevent(e); });
-                // copy/cut: allow if selection inside an editable control; otherwise prevent
-                document.addEventListener('copy', function(e){ if (!isEditableTarget(e.target)) prevent(e); });
-                document.addEventListener('cut', function(e){ if (!isEditableTarget(e.target)) prevent(e); });
-                // selectionchange: allow selection if inside an input/textarea, otherwise clear selection
-                document.addEventListener('selectionchange', function(){ try{ const s = document.getSelection(); if(!s) return; const el = document.activeElement; if (!isEditableTarget(el)) { if(s && s.rangeCount) s.removeAllRanges(); } }catch(_){} });
-                // paste: allow into inputs/textareas, block elsewhere (but allow paste when target is editable)
-                document.addEventListener('paste', function(e){ if (!isEditableTarget(e.target)) { prevent(e); } });
-                document.addEventListener('dragstart', function(e){ if (!isEditableTarget(e.target)) prevent(e); });
-                document.addEventListener('keydown', function(e){ const blocked = ['c','v','x','a','s','p','u']; if ((e.ctrlKey || e.metaKey) && blocked.includes(e.key.toLowerCase())) { // allow if focused inside editable
-                        if (!isEditableTarget(e.target)) prevent(e); }
-                    if (e.key === 'PrintScreen') { prevent(e); } });
-                window.addEventListener('keyup', function(e){ if (e.key === 'PrintScreen') { try{ navigator.clipboard && navigator.clipboard.writeText(''); }catch(_){}} });
-                try{ document.addEventListener('DOMContentLoaded', function(){ const c = document.querySelector('.card-enterprise'); if(c) c.classList.add('pretest-block'); }); }catch(_){ }
-            })();
-        </script>
-        <div class="card-enterprise">
-            <h5 style="margin-bottom:12px">${escapeHtml(conf.title)}</h5>
-            <p style="color:var(--muted)">${escapeHtml(conf.intro)}</p>
-            <form id="lang-pretest" style="display:flex;flex-direction:column;gap:12px">
-                <div id="lang-timer" style="font-weight:700;color:#0b5fff;margin-bottom:6px">経過時間: 00:00:00</div>
-                <label>氏名<input type="text" name="name" required /></label>
-                <label>メール<input type="email" name="email" required /></label>
-                ${interviewHtml}
-                <div style="display:flex;justify-content:flex-end"><button type="button" id="lang-submit" class="btn btn-primary">送信</button></div>
-            </form>
-            <div id="lang-result" style="margin-top:10px;color:var(--muted)"></div>
-        </div>
-        <script>
-            (function(){
-                // start timer when page loads
-                const startedAt = new Date();
-                // visible elapsed timer
-                const langTimerEl = document.getElementById('lang-timer');
-                function fmtTime(s){ const h = String(Math.floor(s/3600)).padStart(2,'0'); const m = String(Math.floor((s%3600)/60)).padStart(2,'0'); const sec = String(s%60).padStart(2,'0'); return h+':'+m+':'+sec; }
-                let _langInterval = setInterval(()=>{ try{ const sec = Math.round((Date.now() - startedAt.getTime())/1000); if(langTimerEl) langTimerEl.textContent = '経過時間: ' + fmtTime(sec); }catch(e){} }, 1000);
-                const btn = document.getElementById('lang-submit');
-                btn.addEventListener('click', async ()=>{
-                    const f = document.getElementById('lang-pretest');
-                    const fd = new FormData(f);
-                    const name = fd.get('name') || '';
-                    const email = fd.get('email') || '';
-                    const answers = {};
-                    // collect all 40 answers
-                    for (let i=1;i<=40;i++){ answers['q'+i] = fd.get('q'+i) || ''; }
-                    answers.script = fd.get('script_answer') || '';
+<style>
+.pt-hero{background:linear-gradient(135deg,#1e40af 0%,#7c3aed 100%);border-radius:16px;padding:28px 24px;color:#fff;margin-bottom:20px}
+.pt-hero h2{font-size:1.4rem;font-weight:800;margin:0 0 6px}
+.pt-hero p{margin:0;opacity:.85;font-size:.9rem}
+.pt-meta{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap}
+.pt-meta-item{background:rgba(255,255,255,.15);border-radius:8px;padding:6px 14px;font-size:.82rem}
+.pt-timer-box{display:inline-flex;align-items:center;gap:8px;background:#fff;border:2px solid #dbeafe;border-radius:10px;padding:7px 14px;font-size:1rem;font-weight:800;color:#1d4ed8;margin-bottom:14px}
+.pt-timer-box.warn{border-color:#fca5a5;color:#dc2626}
+.pt-progress-wrap{background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.pt-progress-bar-bg{flex:1;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.pt-progress-bar-fill{height:100%;background:linear-gradient(90deg,#2563eb,#7c3aed);border-radius:999px;transition:width .3s}
+.pt-progress-label{font-size:.8rem;font-weight:700;color:#4b5563;white-space:nowrap}
+.pt-steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.pt-step-btn{padding:5px 12px;border-radius:999px;border:1.5px solid #e5e7eb;background:#fff;font-size:.78rem;font-weight:600;cursor:pointer;color:#6b7280}
+.pt-step-btn.active{background:#2563eb;border-color:#2563eb;color:#fff}
+.pt-step-btn.done{background:#d1fae5;border-color:#6ee7b7;color:#065f46}
+.pt-section{display:none}.pt-section.active{display:block}
+.pt-section-hdr{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;border-radius:0 8px 8px 0;padding:9px 14px;margin:16px 0 10px;font-weight:700;color:#1e3a8a}
+.pt-section-hdr.essay{border-left-color:#7c3aed;background:linear-gradient(90deg,#f5f3ff,#fdf4ff)}
+.pt-qcard{background:#fff;border-radius:10px;border:1.5px solid #e5e7eb;padding:14px 16px;margin-bottom:8px;transition:border-color .2s}
+.pt-qcard:focus-within{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.pt-qcard.answered{border-color:#bbf7d0}
+.pt-qnum{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:800;font-size:.8rem;flex-shrink:0}
+.pt-qnum.code{background:#ede9fe;color:#7c3aed}
+.pt-qtitle{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.pt-qtext{font-weight:600;font-size:.9rem;color:#1f2937;line-height:1.5;flex:1}
+.pt-opts{display:flex;flex-direction:column;gap:8px}
+.pt-opt-label{display:flex;align-items:center;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all .15s;font-size:.9rem}
+.pt-opt-label:hover{border-color:#93c5fd;background:#eff6ff}
+.pt-opt-label:has(input:checked){border-color:#2563eb;background:#eff6ff;font-weight:600}
+.pt-info-panel{background:#fff;border-radius:10px;border:1.5px solid #e5e7eb;padding:16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.pt-info-panel{grid-template-columns:1fr}}
+.pt-info-panel label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.87rem;color:#374151}
+.pt-info-panel input{padding:8px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.9rem;outline:none}
+.pt-info-panel input:focus{border-color:#2563eb}
+.pt-submit-bar{background:#fff;border-radius:10px;border:1.5px solid #e5e7eb;padding:18px 20px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pt-submit-btn{padding:10px 28px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .2s}
+.pt-submit-btn:disabled{opacity:.45;cursor:not-allowed}
+.pt-result-box{background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:18px 20px;margin-top:14px;display:none}
+.pt-result-box.show{display:block}
+</style>
 
-                    // timing
-                    const endedAt = new Date();
-                    const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime())/1000);
-                    // stop visible timer
-                    try{ clearInterval(_langInterval); }catch(e){}
+<div class="pt-hero">
+  <h2><i class="fa-solid fa-graduation-cap"></i> ${escapeHtml(conf.title)}</h2>
+  <p>${escapeHtml(conf.intro)}</p>
+  <div class="pt-meta">
+    <div class="pt-meta-item"><i class="fa-solid fa-check-square"></i> 選択式 20問（各1点）</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-pen"></i> 記述式 10問（各1点）</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-star"></i> 満点 30点</div>
+    <div class="pt-meta-item"><i class="fa-solid fa-clock"></i> 目安 60分</div>
+  </div>
+</div>
 
-                    try{
-                        const payload = { name, email, answers, score: null, total: null, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationSeconds, lang: '${lang}' };
-                        const resp = await fetch('/pretest/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                        const j = await resp.json();
-                        const el = document.getElementById('lang-result');
-                        if (j.ok) { el.textContent = '保存しました'; btn.disabled = true; btn.textContent='送信済み'; }
-                        else { el.textContent = '保存に失敗しました'; }
-                    } catch(e){ console.error(e); document.getElementById('lang-result').textContent='送信エラー'; }
-                });
-            })();
-        </script>
+<div class="pt-timer-box" id="pt-timer-lang"><i class="fa-solid fa-stopwatch"></i> <span id="pt-timer-lang-display">00:00:00</span></div>
+<div class="pt-progress-wrap">
+  <div class="pt-progress-bar-bg"><div class="pt-progress-bar-fill" id="pt-lang-pbar" style="width:0%"></div></div>
+  <div class="pt-progress-label" id="pt-lang-pcount">0 / 30</div>
+</div>
+
+<div class="pt-steps">
+  <button class="pt-step-btn active" id="step-lang-info-btn" onclick="ptLangSection('info')">📋 受験者情報</button>
+  <button class="pt-step-btn" id="step-lang-mc1-btn" onclick="ptLangSection('mc1')">✅ 選択式 Q1〜Q10</button>
+  <button class="pt-step-btn" id="step-lang-mc2-btn" onclick="ptLangSection('mc2')">✅ 選択式 Q11〜Q20</button>
+  <button class="pt-step-btn" id="step-lang-es1-btn" onclick="ptLangSection('es1')">✏️ 記述式 Q21〜Q25</button>
+  <button class="pt-step-btn" id="step-lang-es2-btn" onclick="ptLangSection('es2')">✏️ 記述式 Q26〜Q30</button>
+  <button class="pt-step-btn" id="step-lang-sub-btn" onclick="ptLangSection('sub')">🚀 確認・送信</button>
+</div>
+
+<form id="pt-lang-form">
+
+<!-- 受験者情報 -->
+<div class="pt-section active" id="pt-lang-sec-info">
+  <div class="pt-info-panel">
+    <label>氏名 <input type="text" name="name" id="pt-lang-name" placeholder="山田 太郎" required></label>
+    <label>メールアドレス <input type="email" name="email" id="pt-lang-email" placeholder="example@email.com" required></label>
+  </div>
+  <div style="text-align:right"><button type="button" class="pt-submit-btn" onclick="ptLangSection('mc1')" style="padding:9px 22px;font-size:.9rem">次へ：選択式問題 <i class="fa-solid fa-arrow-right"></i></button></div>
+</div>
+
+<!-- 選択式 Q1〜Q10 -->
+<div class="pt-section" id="pt-lang-sec-mc1">
+  <div class="pt-section-hdr"><i class="fa-solid fa-check-square"></i> 選択式（Q1〜Q10）― 最も適切な選択肢を1つ選んでください</div>
+  ${mcHtml.split('</div>').slice(0, 10).join('</div>') + '</div>'}
+  <div style="display:flex;justify-content:space-between;margin-top:12px">
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('info')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc2')" style="padding:8px 20px;font-size:.88rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- 選択式 Q11〜Q20 -->
+<div class="pt-section" id="pt-lang-sec-mc2">
+  <div class="pt-section-hdr"><i class="fa-solid fa-check-square"></i> 選択式（Q11〜Q20）― 最も適切な選択肢を1つ選んでください</div>
+  ${(() => { const parts = mcHtml.split('<div class="pt-qcard"'); return parts.slice(11).map((p,i)=> '<div class="pt-qcard"' + p).join(''); })()}
+  <div style="display:flex;justify-content:space-between;margin-top:12px">
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc1')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('es1')" style="padding:8px 20px;font-size:.88rem">次へ：記述式 <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- 記述式 Q21〜Q25 -->
+<div class="pt-section" id="pt-lang-sec-es1">
+  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q21〜Q25）― 簡潔に述べてください</div>
+  ${(() => { const parts = essayHtml.split('<div class="pt-qcard"'); return parts.slice(1,6).map(p=>'<div class="pt-qcard"'+p).join(''); })()}
+  <div style="display:flex;justify-content:space-between;margin-top:12px">
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('mc2')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('es2')" style="padding:8px 20px;font-size:.88rem">次へ <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- 記述式 Q26〜Q30 -->
+<div class="pt-section" id="pt-lang-sec-es2">
+  <div class="pt-section-hdr essay"><i class="fa-solid fa-pen"></i> 記述式（Q26〜Q30）― 簡潔に述べてください</div>
+  ${(() => { const parts = essayHtml.split('<div class="pt-qcard"'); return parts.slice(6).map(p=>'<div class="pt-qcard"'+p).join(''); })()}
+  <div style="display:flex;justify-content:space-between;margin-top:12px">
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('es1')" style="background:#6b7280;padding:8px 20px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+    <button type="button" class="pt-submit-btn" onclick="ptLangSection('sub')" style="padding:8px 20px;font-size:.88rem">確認・送信へ <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<!-- 確認・送信 -->
+<div class="pt-section" id="pt-lang-sec-sub">
+  <div class="pt-section-hdr"><i class="fa-solid fa-paper-plane"></i> 確認・送信</div>
+  <div id="pt-lang-check-summary" style="background:#fff;border-radius:10px;border:1.5px solid #e5e7eb;padding:14px 16px;margin-bottom:14px;font-size:.9rem;color:#374151;line-height:1.8"></div>
+  <div class="pt-submit-bar">
+    <div style="font-size:.88rem;color:#6b7280">回答を確認して送信してください</div>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="pt-submit-btn" onclick="ptLangSection('es2')" style="background:#6b7280;padding:8px 18px;font-size:.88rem"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+      <button type="button" class="pt-submit-btn" id="pt-lang-submit-btn">送信する <i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+  </div>
+  <div class="pt-result-box" id="pt-lang-result"></div>
+</div>
+
+</form>
+
+<script>
+(function(){
+    const startedAt = new Date();
+    const timerEl = document.getElementById('pt-timer-lang-display');
+    const timerBox = document.getElementById('pt-timer-lang');
+    let _ti = setInterval(()=>{
+        const s = Math.round((Date.now()-startedAt.getTime())/1000);
+        const h=String(Math.floor(s/3600)).padStart(2,'0'),m=String(Math.floor((s%3600)/60)).padStart(2,'0'),sec=String(s%60).padStart(2,'0');
+        timerEl.textContent=h+':'+m+':'+sec;
+        if(s>5400) timerBox.classList.add('warn'); // 90分警告
+    },1000);
+
+    const TOTAL=30;
+    const answered=new Set();
+    window.ptMarkAnswered=function(n,el){
+        if(el.value||el.value===0) answered.add(n);
+        const pct=Math.round(answered.size/TOTAL*100);
+        const pb=document.getElementById('pt-lang-pbar');
+        const pc=document.getElementById('pt-lang-pcount');
+        if(pb) pb.style.width=pct+'%';
+        if(pc) pc.textContent=answered.size+' / '+TOTAL;
+        const card=document.getElementById('ptcard-q'+n);
+        if(card) card.classList.add('answered');
+        updateSummary();
+    };
+
+    const sections=['info','mc1','mc2','es1','es2','sub'];
+    window.ptLangSection=function(sec){
+        sections.forEach(s=>{
+            const el=document.getElementById('pt-lang-sec-'+s);
+            const btn=document.getElementById('step-lang-'+s+'-btn');
+            if(el) el.classList.toggle('active',s===sec);
+            if(btn){btn.classList.toggle('active',s===sec);}
+        });
+        window.scrollTo({top:0,behavior:'smooth'});
+        if(sec==='sub') updateSummary();
+    };
+
+    function updateSummary(){
+        const el=document.getElementById('pt-lang-check-summary');
+        if(!el) return;
+        const mc=[];const es=[];
+        for(let i=1;i<=20;i++){
+            const radios=document.querySelectorAll('input[name="q'+i+'"]');
+            let sel='未回答';
+            radios.forEach(r=>{ if(r.checked) sel='選択: '+r.value; });
+            mc.push('Q'+i+': '+sel);
+        }
+        for(let i=21;i<=30;i++){
+            const ta=document.getElementById('pt-q'+i);
+            const val=ta&&ta.value?ta.value.trim():'';
+            es.push('Q'+i+': '+(val?val.substring(0,30)+(val.length>30?'…':''):'未回答'));
+        }
+        el.innerHTML='<b>選択式（Q1〜Q20）</b><br>'+mc.join(' ／ ')+'<br><br><b>記述式（Q21〜Q30）</b><br>'+es.join('<br>');
+    }
+
+    document.getElementById('pt-lang-submit-btn').addEventListener('click',async function(){
+        const name=(document.getElementById('pt-lang-name')||{}).value||'';
+        const email=(document.getElementById('pt-lang-email')||{}).value||'';
+        if(!name||!email){ alert('氏名とメールアドレスを入力してください'); ptLangSection('info'); return; }
+        const btn=this; btn.disabled=true; btn.textContent='送信中...';
+        const endedAt=new Date();
+        const durationSeconds=Math.round((endedAt-startedAt)/1000);
+        clearInterval(_ti);
+        const answers={};
+        for(let i=1;i<=20;i++){
+            const radios=document.querySelectorAll('input[name="q'+i+'"]:checked');
+            answers['q'+i]=radios.length?radios[0].value:'';
+        }
+        for(let i=21;i<=30;i++){
+            const ta=document.getElementById('pt-q'+i);
+            answers['q'+i]=ta?ta.value:'';
+        }
+        try{
+            const payload={name,email,answers,lang:'${lang}',startedAt:startedAt.toISOString(),endedAt:endedAt.toISOString(),durationSeconds};
+            const resp=await fetch('/pretest/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const j=await resp.json();
+            const rb=document.getElementById('pt-lang-result');
+            rb.classList.add('show');
+            if(j.ok){
+                rb.innerHTML='<h3 style="color:#166534;margin:0 0 8px">✅ 送信完了！</h3><p style="margin:0">回答を受け付けました。結果は後日ご連絡します。</p>';
+                btn.textContent='送信済み';
+            } else {
+                rb.style.background='#fef2f2'; rb.style.borderColor='#fca5a5';
+                rb.innerHTML='<h3 style="color:#dc2626;margin:0 0 8px">❌ エラー</h3><p>'+( j.error||'送信に失敗しました')+'</p>';
+                btn.disabled=false; btn.textContent='再送信';
+            }
+        }catch(e){
+            console.error(e);
+            const rb=document.getElementById('pt-lang-result');
+            rb.classList.add('show'); rb.style.background='#fef2f2'; rb.style.borderColor='#fca5a5';
+            rb.innerHTML='<h3 style="color:#dc2626;margin:0 0 8px">❌ 送信エラー</h3><p>ネットワークエラーが発生しました。</p>';
+            btn.disabled=false; btn.textContent='再送信';
+        }
+    });
+})();
+</script>
     `);
 });
-
-// 入社前テスト実施ページ
-router.get('/pretest', requireLogin, (req, res) => {
+// 入社前テスト実施ページ（候補者は未ログインのためrequireLoginなし）
+router.get('/pretest', (req, res) => {
     renderPage(req, res, '入社前テスト', '入社前テスト実施', `
 <style>
 /* ── テストページ専用スタイル ── */
@@ -1247,8 +1107,8 @@ router.get('/pretest', requireLogin, (req, res) => {
 });
 
 
-// 入社前テスト送信API（担当者へメール）
-router.post('/pretest/submit', requireLogin, async (req, res) => {
+// 入社前テスト送信API（候補者は未ログインのためrequireLoginなし）
+router.post('/pretest/submit', async (req, res) => {
     try {
         // Capture body in multiple ways for robust debugging (JSON/form)
         const payload = (req.body && Object.keys(req.body).length) ? req.body : {};
@@ -1393,7 +1253,8 @@ router.get('/admin/pretest/:id', isAdmin, async (req, res) => {
         const per = it.perQuestionScores || {};
 
         const rows = [];
-        for (let i=1;i<=40;i++){
+        const qCount = (it.lang && it.lang !== 'common') ? 30 : 40;
+        for (let i=1;i<=qCount;i++){
             const k = 'q'+i;
             const ans = escapeHtml((answers[k]||'').toString());
             const p = typeof per[k] !== 'undefined' ? per[k] : '-';
