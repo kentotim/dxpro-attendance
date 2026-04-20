@@ -377,6 +377,17 @@ const EmployeeSchema = new mongoose.Schema({
 
 // モデル export
 const User            = mongoose.model('User', UserSchema);
+// GPS承認済み場所スキーマ
+const ApprovedLocationSchema = new mongoose.Schema({
+    name:      { type: String, required: true },       // 場所名（例：本社、テレワーク可）
+    latitude:  { type: Number, required: true },       // 緯度
+    longitude: { type: Number, required: true },       // 経度
+    radius:    { type: Number, required: true, default: 200 }, // 許容半径（メートル）
+    isActive:  { type: Boolean, default: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now }
+});
+
 const Attendance      = mongoose.model('Attendance', AttendanceSchema);
 const Employee        = mongoose.model('Employee', EmployeeSchema);
 const BoardPost       = mongoose.model('BoardPost', BoardPostSchema);
@@ -394,6 +405,7 @@ const DailyReport     = mongoose.model('DailyReport', DailyReportSchema);
 const SkillSheet      = mongoose.model('SkillSheet', SkillSheetSchema);
 const Notification    = mongoose.model('Notification', NotificationSchema);
 const OvertimeRequest = mongoose.model('OvertimeRequest', OvertimeRequestSchema);
+const ApprovedLocation = mongoose.model('ApprovedLocation', ApprovedLocationSchema);
 
 module.exports = {
     User,
@@ -413,5 +425,6 @@ module.exports = {
     DailyReport,
     SkillSheet,
     Notification,
-    OvertimeRequest
+    OvertimeRequest,
+    ApprovedLocation
 };

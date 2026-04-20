@@ -213,9 +213,15 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
                 ` : ''}
                 <a href="/edit-attendance/${todayAttendance._id}" class="btn btn--ghost">編集</a>
               ` : `
-                <form action="/checkin" method="POST" style="display:inline">
-                  <button class="btn btn--primary" type="submit"><i class="fa-solid fa-sign-in-alt"></i> 出勤</button>
+                <form id="checkinForm" action="/checkin" method="POST" style="display:inline">
+                  <input type="hidden" name="gpsLat" id="gpsLat">
+                  <input type="hidden" name="gpsLng" id="gpsLng">
+                  <input type="hidden" name="gpsLocation" id="gpsLocation">
+                  <button class="btn btn--primary" type="button" onclick="gpsCheckin()" id="checkinBtn">
+                    <i class="fa-solid fa-location-dot"></i> GPS出勤
+                  </button>
                 </form>
+                <div id="gpsStatus" style="font-size:12px;color:#64748b;margin-top:6px;text-align:center"></div>
               `}
             </div>
           </div>
@@ -354,6 +360,79 @@ table.att-table{width:100%;border-collapse:collapse;min-width:800px}
   }
   setInterval(updateClocks,1000);
   window.onload = updateClocks;
+
+  // ── GPS打刻ロジック ──────────────────────────
+  function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // 地球半径（m）
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function gpsCheckin() {
+    const btn = document.getElementById('checkinBtn');
+    const status = document.getElementById('gpsStatus');
+    if (!navigator.geolocation) {
+      status.innerHTML = '<span style="color:#ef4444">⚠ Geolocationが使用できません。管理者にお問い合わせください。</span>';
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 位置情報取得中...';
+    status.textContent = '現在地を確認しています...';
+
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        const resp = await fetch('/locations/api/active');
+        const locations = await resp.json();
+
+        if (locations.length === 0) {
+          // 承認済み場所が未設定の場合はそのまま打刻
+          document.getElementById('gpsLat').value = latitude;
+          document.getElementById('gpsLng').value = longitude;
+          document.getElementById('gpsLocation').value = '未設定（GPS取得済み）';
+          status.innerHTML = '<span style="color:#16a34a">✓ 位置情報取得完了（場所未設定）</span>';
+          document.getElementById('checkinForm').submit();
+          return;
+        }
+
+        let nearest = null, minDist = Infinity;
+        for (const loc of locations) {
+          const dist = haversineDistance(latitude, longitude, loc.latitude, loc.longitude);
+          if (dist < minDist) { minDist = dist; nearest = loc; }
+          if (dist <= loc.radius) { nearest = loc; minDist = dist; break; }
+        }
+
+        const matched = locations.find(loc =>
+          haversineDistance(latitude, longitude, loc.latitude, loc.longitude) <= loc.radius
+        );
+
+        if (matched) {
+          document.getElementById('gpsLat').value = latitude;
+          document.getElementById('gpsLng').value = longitude;
+          document.getElementById('gpsLocation').value = matched.name;
+          status.innerHTML = '<span style="color:#16a34a">✓ 承認済み場所：' + matched.name + '（' + Math.round(minDist) + 'm以内）</span>';
+          document.getElementById('checkinForm').submit();
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
+          const dist = Math.round(minDist);
+          status.innerHTML = \`<span style="color:#ef4444">⚠ 承認済み場所外です（最寄り：\${nearest ? nearest.name : '-'}、距離：\${dist}m）<br>管理者に連絡するか、<a href="/add-attendance" style="color:#0f6fff">手動打刻</a>をご利用ください。</span>\`;
+        }
+      } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
+        status.innerHTML = '<span style="color:#ef4444">⚠ サーバーエラーが発生しました</span>';
+      }
+    }, err => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> GPS出勤';
+      const msgs = { 1:'位置情報の使用が拒否されました', 2:'位置情報を取得できませんでした', 3:'タイムアウトしました' };
+      status.innerHTML = \`<span style="color:#ef4444">⚠ \${msgs[err.code] || '不明なエラー'}</span>\`;
+    }, { timeout: 10000, enableHighAccuracy: true });
+  }
 </script>
 </body>
 </html>
@@ -1203,7 +1282,8 @@ router.post('/checkin', requireLogin, async (req, res) => {
             userId: user._id,
             date: todayJST,
             checkIn: now, // 現在時刻（UTC）
-            status: now.getHours() >= 9 ? '遅刻' : '正常'
+            status: now.getHours() >= 9 ? '遅刻' : '正常',
+            notes: req.body.gpsLocation ? `GPS打刻: ${req.body.gpsLocation}` : undefined
         });
 
         await attendance.save();

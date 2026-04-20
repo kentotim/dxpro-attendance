@@ -70,6 +70,7 @@ app.use('/', require('./routes/chatbot'));
 app.use('/', require('./routes/skillsheet'));
 app.use('/', require('./routes/notifications').router);
 app.use('/', require('./routes/overtime'));
+app.use('/', require('./routes/locations'));
 
 // ── グローバルエラーハンドラー（500エラーでプロセスをクラッシュさせない） ─
 app.use((err, req, res, next) => {
