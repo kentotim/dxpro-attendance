@@ -452,6 +452,7 @@ const Notification    = mongoose.model('Notification', NotificationSchema);
 const OvertimeRequest = mongoose.model('OvertimeRequest', OvertimeRequestSchema);
 const ApprovedLocation = mongoose.model('ApprovedLocation', ApprovedLocationSchema);
 const PretestConfig    = mongoose.model('PretestConfig', PretestConfigSchema);
+const PayrollSetting   = mongoose.model('PayrollSetting', PayrollSettingSchema);
 
 // ─── Issue #19: 部署（Department）スキーマ ──────────────────────────────────
 const DepartmentSchema = new mongoose.Schema({
@@ -519,5 +520,6 @@ module.exports = {
     ApprovedLocation,
     PretestConfig,
     IntegrationConfig,
-    Department
+    Department,
+    PayrollSetting
 };
