@@ -126,6 +126,37 @@ router.get('/pretest/answers/:lang', requireLogin, (req, res) => {
 
     // ── common ルートをここで処理（登録順序の問題でこのハンドラが先に捕捉するため）──
     if (lang === 'common') {
+        const { LANG_TESTS: LT } = require('../lib/pretestQuestions');
+        const cconf = LT['common'];
+        if (!cconf) return res.status(404).send('Not found');
+        const diffLabel = { VE: '非常に易しい', EM: '中間', H: '難しい', VH: '非常に難しい' };
+        const diffColor = { VE: '#22c55e', EM: '#3b82f6', H: '#f59e0b', VH: '#ef4444' };
+        const mcHtml = cconf.mc.map((item, idx) => {
+            const badge = `<span style="font-size:10px;font-weight:700;background:${diffColor[item.diff]}22;color:${diffColor[item.diff]};border:1px solid ${diffColor[item.diff]}44;border-radius:999px;padding:1px 8px;margin-left:8px">${diffLabel[item.diff]}</span>`;
+            const optsHtml = item.opts.map(o => {
+                const isCorrect = o.startsWith(item.ans + '.');
+                return `<div style="padding:4px 8px;border-radius:6px;${isCorrect ? 'background:#d1fae5;font-weight:700;color:#065f46' : 'color:#6b7280'}">${isCorrect ? '✅ ' : '　'}${escapeHtml(o)}</div>`;
+            }).join('');
+            return `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px;border:1.5px solid #e5e7eb"><div style="font-weight:700;margin-bottom:6px">Q${idx+1}. ${escapeHtml(item.q)}${badge}</div>${optsHtml}</div>`;
+        }).join('');
+        const essayHtml = cconf.essay.map((item, idx) => {
+            const kw = (item.keywords||[]).join('、');
+            return `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px;border:1.5px solid #ede9fe"><div style="font-weight:700;margin-bottom:4px">Q${idx+31}. ${escapeHtml(item.q)}<span style="font-size:10px;font-weight:700;background:#7c3aed22;color:#7c3aed;border:1px solid #7c3aed44;border-radius:999px;padding:1px 8px;margin-left:8px">記述式</span></div><div style="font-size:.85rem;color:#6b7280">採点キーワード: ${escapeHtml(kw)}</div></div>`;
+        }).join('');
+        return renderPage(req, res, '入社前テスト 模範解答（共通）', 'Q1〜Q40 模範解答', `
+            <div class="card-enterprise">
+                <h5 style="margin-bottom:12px">入社前テスト - 模範解答（共通）</h5>
+                <p style="color:var(--muted)">選択式Q1〜Q30は正解選択肢（✅）、記述式Q31〜Q40は採点キーワードを表示します。</p>
+                <h6 style="margin:16px 0 6px;color:#1d4ed8">選択式（Q1〜Q30）</h6>
+                ${mcHtml}
+                <h6 style="margin:20px 0 6px;color:#7c3aed">記述式（Q31〜Q40）</h6>
+                ${essayHtml}
+                <div style="margin-top:16px;display:flex;justify-content:flex-end"><a class="btn btn-primary" href="/pretest/answers">言語一覧に戻る</a></div>
+            </div>
+        `);
+    }
+    // ── ここから旧common固定データは削除済み ──
+    if (false) {
         const commonQuestions = [
             'Javaでメモリ管理はどのように行われますか？',
             'Javaのガベージコレクションとは何ですか？',
@@ -210,20 +241,10 @@ router.get('/pretest/answers/:lang', requireLogin, (req, res) => {
             'for (const id of ids) { await processAsync(id); } // 並列はPromise.all等を検討',
             'function safeLen(s){ return s == null ? 0 : s.length; }'
         ];
-        const qa = commonQuestions.map((q, i) =>
-            `<div style="background:#fff;border-radius:8px;padding:12px;margin-top:8px"><div style="font-weight:700">Q${i+1}. ${escapeHtml(q)}</div><div style="margin-top:8px"><pre style="white-space:pre-wrap">${escapeHtml(commonAnswers[i]||'')}</pre></div></div>`
-        ).join('\n');
-        return renderPage(req, res, '入社前テスト 模範解答（共通）', 'Q1〜Q40 質問と模範解答', `
-            <div class="card-enterprise">
-                <h5 style="margin-bottom:12px">入社前テスト - 質問と模範解答（共通）</h5>
-                <p style="color:var(--muted)">各設問に対する簡潔な模範解答を質問→解答の順で表示します。</p>
-                ${qa}
-                <div style="margin-top:12px;display:flex;justify-content:flex-end"><a class="btn btn-primary" href="/pretest/answers">言語一覧に戻る</a></div>
-            </div>
-        `);
+        // (dead code - kept for reference)
     }
 
-    const langs = ['java','javascript','python','php','csharp','android','swift'];
+    const langs = ['common','java','javascript','python','php','csharp','android','swift'];
     if (!langs.includes(lang)) return res.status(404).send('Not found');
 
     // minimal per-language concise answers (20 interview + 20 scripts)
