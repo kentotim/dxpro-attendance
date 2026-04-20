@@ -1007,11 +1007,25 @@ router.post('/pretest/submit', async (req, res) => {
 // 管理者用: 入社前テスト一覧
 router.get('/admin/pretests', isAdmin, async (req, res) => {
     try {
-        const items = await PretestSubmission.find().sort({ createdAt: -1 }).limit(200).lean();
+        const [items, ptConfig] = await Promise.all([
+            PretestSubmission.find().sort({ createdAt: -1 }).limit(200).lean(),
+            PretestConfig.findOne().lean()
+        ]);
+        const cfg = ptConfig || { passPercent: 60, usePercent: true, passScore: 60 };
+        const passLine = cfg.usePercent
+            ? `合格ライン: ${cfg.passPercent}%`
+            : `合格ライン: ${cfg.passScore}点`;
+        function isPassed(it) {
+            if (it.score === null || it.score === undefined || !it.total) return null;
+            const threshold = cfg.usePercent
+                ? (it.total * cfg.passPercent / 100)
+                : cfg.passScore;
+            return it.score >= threshold;
+        }
         renderPage(req, res, '入社前テスト一覧', '入社前テスト提出一覧', `
             <style>
                 .pt-admin-page{max-width:1100px;margin:0 auto}
-                .pt-admin-header{margin-bottom:20px}
+                .pt-admin-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
                 .pt-admin-title{font-size:20px;font-weight:800;color:#0b2540;margin:0 0 4px}
                 .pt-admin-sub{font-size:13px;color:#6b7280;margin:0}
                 .pt-admin-table-wrap{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(11,36,48,.06);overflow:hidden}
@@ -1027,14 +1041,18 @@ router.get('/admin/pretests', isAdmin, async (req, res) => {
                 .pt-admin-table td.lang-col{white-space:nowrap}
                 .pt-admin-table td.action-col{white-space:nowrap;width:1%}
                 .pt-lang-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#ede9fe;color:#7c3aed}
+                .pt-pass-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46}
+                .pt-fail-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b}
                 .pt-view-btn{display:inline-block;padding:4px 12px;background:#eff6ff;color:#0b5fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;transition:background .15s}
                 .pt-view-btn:hover{background:#dbeafe}
                 .pt-empty{text-align:center;color:#9ca3af;font-size:13px;padding:32px}
             </style>
             <div class="pt-admin-page">
                 <div class="pt-admin-header">
-                    <div class="pt-admin-title">📋 入社前テスト 提出一覧</div>
-                    <div class="pt-admin-sub">最新 ${items.length} 件を表示しています</div>
+                    <div>
+                        <div class="pt-admin-title">📋 入社前テスト 提出一覧</div>
+                        <div class="pt-admin-sub">最新 ${items.length} 件 ／ ${passLine}（<a href="/admin/pretest-config" style="color:#2563eb">設定変更</a>）</div>
+                    </div>
                 </div>
                 <div class="pt-admin-table-wrap">
                     <table class="pt-admin-table">
@@ -1045,6 +1063,7 @@ router.get('/admin/pretests', isAdmin, async (req, res) => {
                                 <th>メール</th>
                                 <th>言語</th>
                                 <th>スコア</th>
+                                <th>合否</th>
                                 <th>開始</th>
                                 <th>終了</th>
                                 <th>所要(秒)</th>
@@ -1052,17 +1071,24 @@ router.get('/admin/pretests', isAdmin, async (req, res) => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${items.length === 0 ? `<tr><td colspan="9" class="pt-empty">提出がありません</td></tr>` : items.map(it => {
+                            ${items.length === 0 ? `<tr><td colspan="10" class="pt-empty">提出がありません</td></tr>` : items.map(it => {
                                 const started = it.startedAt ? moment(it.startedAt).format('MM/DD HH:mm') : '-';
                                 const ended = it.endedAt ? moment(it.endedAt).format('MM/DD HH:mm') : '-';
                                 const dur = typeof it.durationSeconds !== 'undefined' && it.durationSeconds !== null ? it.durationSeconds : '-';
                                 const lang = it.lang || 'common';
+                                const passed = isPassed(it);
+                                const passBadge = passed === null
+                                    ? '<span style="color:#9ca3af;font-size:12px">-</span>'
+                                    : passed
+                                        ? '<span class="pt-pass-badge">✅ 合格</span>'
+                                        : '<span class="pt-fail-badge">❌ 不合格</span>';
                                 return `<tr>
                                     <td class="date-col">${moment(it.createdAt).format('YYYY/MM/DD HH:mm')}</td>
                                     <td class="name-col" title="${escapeHtml(it.name||'')}">${escapeHtml(it.name||'')}</td>
                                     <td class="email-col" title="${escapeHtml(it.email||'')}">${escapeHtml(it.email||'')}</td>
                                     <td class="lang-col"><span class="pt-lang-badge">${escapeHtml(lang)}</span></td>
                                     <td class="score-col">${it.score} / ${it.total}</td>
+                                    <td>${passBadge}</td>
                                     <td class="date-col">${started}</td>
                                     <td class="date-col">${ended}</td>
                                     <td class="date-col">${dur}</td>
