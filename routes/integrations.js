@@ -5,7 +5,7 @@
 const express  = require('express');
 const router   = express.Router();
 const moment   = require('moment-timezone');
-const { buildPageShell } = require('../lib/renderPage');
+const { buildPageShell, pageFooter } = require('../lib/renderPage');
 const { getConfig, saveConfig, sendSlack, sendLineWorks, exportFreeePayroll, exportMoneyForwardAttendance } = require('../lib/integrations');
 const { IntegrationConfig, Employee, Attendance, PayrollSlip } = require('../models');
 
@@ -18,11 +18,15 @@ function requireAdmin(req, res, next) {
 // GET /admin/integrations - 連携設定一覧
 // ─────────────────────────────────────────────────────────────
 router.get('/admin/integrations', requireAdmin, async (req, res) => {
-    const employee = null;
+    try {
+    const { Employee } = require('../models');
+    const employee = req.session.userId
+        ? await Employee.findOne({ userId: req.session.userId }).lean().catch(() => null)
+        : null;
     const services = ['slack', 'line_works', 'freee', 'money_forward'];
     const configs  = {};
     for (const svc of services) {
-        const cfg = await getConfig(svc);
+        const cfg = await getConfig(svc).catch(() => null);
         configs[svc] = cfg || { service: svc, enabled: false };
     }
 
@@ -242,7 +246,11 @@ router.get('/admin/integrations', requireAdmin, async (req, res) => {
     });
     </script>`;
 
-    res.send(buildPageShell({ title: '外部API連携設定', currentPath: '/admin/integrations', employee, isAdmin: true }, content));
+    res.send(buildPageShell({ title: '外部API連携設定', currentPath: '/admin/integrations', employee, isAdmin: true }) + content + pageFooter());
+    } catch (err) {
+        console.error('[Integrations GET]', err);
+        res.status(500).send('<h2>外部API連携設定の読み込みに失敗しました。</h2><p>' + err.message + '</p><a href="/admin">管理者トップへ戻る</a>');
+    }
 });
 
 // ─────────────────────────────────────────────────────────────

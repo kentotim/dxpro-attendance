@@ -987,7 +987,7 @@ router.get('/skillsheet/map', requireLogin, async (req, res) => {
         const employee = req.session.employee;
 
         const content = `
-<div style="max-width:1200px;margin:0 auto">
+<div style="max-width:100%;margin:0 auto">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <h2 style="margin:0;font-size:22px;font-weight:800">
         <i class="fa fa-chart-radar" style="color:#0f6fff"></i> スキルマップ
@@ -1009,14 +1009,14 @@ router.get('/skillsheet/map', requireLogin, async (req, res) => {
             <option value="">-- 選択してください --</option>
         </select>
     </div>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="personalGrid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px 60px" id="personalGrid">
         <div class="sk-card">
             <h4>カテゴリ別スキルレベル（レーダー）</h4>
-            <canvas id="radarChart" height="300"></canvas>
+            <canvas id="radarChart" width="500" height="500"></canvas>
         </div>
         <div class="sk-card">
             <h4>担当工程実績</h4>
-            <canvas id="taskChart" height="300"></canvas>
+            <canvas id="taskChart" width="500" height="500"></canvas>
         </div>
         <div class="sk-card" style="grid-column:1/-1">
             <h4>スキルTop10</h4>
@@ -1049,7 +1049,7 @@ ${isAdmin ? `
 </div>
 
 <style>
-.sk-card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.sk-card{background:#fff;border-radius:14px;padding:80px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px}
 .sk-card h4{margin:0 0 16px;font-size:15px;color:#334155}
 .tab-btn{background:#f1f5f9;color:#334155;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
 .tab-btn.active{background:#0f6fff;color:#fff}
@@ -1199,8 +1199,8 @@ ${isAdmin ? `
 })();` : `loadPersonal();`}
 </script>
 `;
-        res.send(require('../lib/renderPage').buildPageShell('スキルマップ', content, req) +
-                 require('../lib/renderPage').pageFooter());
+        const { buildPageShell, pageFooter } = require('../lib/renderPage');
+        res.send(buildPageShell({ title: 'スキルマップ', currentPath: '/skillsheet/map', employee, isAdmin }) + content + pageFooter());
     } catch (e) {
         console.error(e);
         res.status(500).send('エラー: ' + e.message);
