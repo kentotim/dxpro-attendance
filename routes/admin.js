@@ -52,6 +52,36 @@ router.get('/admin', requireLogin, isAdmin, async (req, res) => {
                         <div class="admin-desc">従業員からの残業・休日出勤申請を承認・却下します。</div>
                     </a>
 
+                    <a class="admin-card" href="/locations">
+                        <div class="admin-head"><div class="admin-icon">📍</div><div class="admin-title">GPS承認済み場所管理</div></div>
+                        <div class="admin-desc">GPS打刻で使用する承認済み場所（本社・テレワーク等）を登録・管理します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/skillsheet/map">
+                        <div class="admin-head"><div class="admin-icon">📊</div><div class="admin-title">スキルマップ</div></div>
+                        <div class="admin-desc">社員のスキルをレーダーチャート・チーム全体のスキル分布を可視化します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/hr/daily-report/summary">
+                        <div class="admin-head"><div class="admin-icon">🤖</div><div class="admin-title">日報AI要約</div></div>
+                        <div class="admin-desc">日報を週次・月次で自動要約。管理者へメール送信できます。</div>
+                    </a>
+                    
+                    <a class="admin-card" href="/admin/departments">
+                        <div class="admin-head"><div class="admin-icon">🏢</div><div class="admin-title">部署管理</div></div>
+                        <div class="admin-desc">部署の階層構造・部門長を管理します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/admin/organization/roles">
+                        <div class="admin-head"><div class="admin-icon">👥</div><div class="admin-title">ロール・人事異動</div></div>
+                        <div class="admin-desc">社員のロール（部門長・チームリーダー）・兼務・上司を設定します。</div>
+                    </a>
+
+                    <a class="admin-card" href="/hr/payroll/admin">
+                        <div class="admin-head"><div class="admin-icon">💴</div><div class="admin-title">給与管理</div></div>
+                        <div class="admin-desc">給与明細の登録・確認・発行を行います。</div>
+                    </a>
+
                     <a class="admin-card" href="/admin/register-employee">
                         <div class="admin-head"><div class="admin-icon">👥</div><div class="admin-title">従業員登録</div></div>
                         <div class="admin-desc">新しい社員アカウント・従業員情報を作成します。</div>
@@ -94,149 +124,12 @@ router.get('/admin', requireLogin, isAdmin, async (req, res) => {
         renderPage(req, res, '管理者メニュー', '管理者メニュー', html);
 });
 
-// 従業員登録フォーム
+// 従業員登録 → 統合ページにリダイレクト
 router.get('/admin/register-employee', requireLogin, isAdmin, (req, res) => {
-    const html = `
-    <style>
-        .reg-wrap { max-width: 680px; margin: 0 auto; padding: 0 0 60px; }
-        .reg-breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:#94a3b8; margin-bottom:24px; }
-        .reg-breadcrumb a { color:#64748b; text-decoration:none; transition:color .15s; }
-        .reg-breadcrumb a:hover { color:#3b82f6; }
-        .reg-breadcrumb .sep { color:#cbd5e1; }
-        .reg-header { display:flex; align-items:center; gap:16px; margin-bottom:32px; }
-        .reg-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#10b981 0%,#059669 100%); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; box-shadow:0 4px 14px rgba(16,185,129,.35); }
-        .reg-title-block h1 { margin:0 0 4px; font-size:22px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
-        .reg-title-block p { margin:0; font-size:13px; color:#64748b; }
-        .reg-alert { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; margin-bottom:18px; animation:fadeSlideIn .3s ease; }
-        .reg-alert-success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
-        .reg-alert-error { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
-        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
-        .reg-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(15,23,42,.08); overflow:hidden; }
-        .reg-section { padding:28px 32px; }
-        .reg-section + .reg-section { border-top:1px solid #f1f5f9; }
-        .reg-section-label { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#94a3b8; margin-bottom:20px; }
-        .reg-section-label::after { content:''; flex:1; height:1px; background:#f1f5f9; }
-        .reg-field { margin-bottom:18px; }
-        .reg-field:last-child { margin-bottom:0; }
-        .reg-label { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:#475569; margin-bottom:7px; }
-        .reg-required { display:inline-block; background:#fef2f2; color:#ef4444; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; }
-        .reg-input { width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:14px; color:#0f172a; background:#fafbfc; outline:none; transition:border-color .18s,box-shadow .18s,background .18s; box-sizing:border-box; }
-        .reg-input::placeholder { color:#c0c8d4; }
-        .reg-input:hover { border-color:#c7d2e0; background:#fff; }
-        .reg-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
-        .reg-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-        .reg-footer { padding:20px 32px; background:#f8fafc; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-        .reg-note { font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:5px; }
-        .reg-btn-group { display:flex; gap:10px; }
-        .reg-btn-cancel { display:inline-flex; align-items:center; gap:6px; padding:10px 20px; background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-weight:600; text-decoration:none; transition:border-color .15s,color .15s,background .15s; }
-        .reg-btn-cancel:hover { border-color:#94a3b8; color:#1e293b; background:#f8fafc; }
-        .reg-btn-submit { display:inline-flex; align-items:center; gap:8px; padding:10px 26px; background:linear-gradient(135deg,#10b981 0%,#059669 100%); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 10px rgba(16,185,129,.35); transition:opacity .15s,box-shadow .15s,transform .1s; }
-        .reg-btn-submit:hover { opacity:.92; box-shadow:0 4px 16px rgba(16,185,129,.45); transform:translateY(-1px); }
-        .reg-btn-submit:active { transform:translateY(0); }
-        @media(max-width:540px) { .reg-section{padding:22px 18px} .reg-footer{flex-direction:column;align-items:stretch;padding:18px} .reg-btn-group{flex-direction:column-reverse} .reg-grid-2{grid-template-columns:1fr} .reg-btn-cancel,.reg-btn-submit{justify-content:center} }
-    </style>
-
-    <div class="reg-wrap">
-        <nav class="reg-breadcrumb">
-            <a href="/admin"><i class="fa fa-shield-halved"></i> 管理者メニュー</a>
-            <span class="sep">›</span>
-            <span>従業員登録</span>
-        </nav>
-
-        <div class="reg-header">
-            <div class="reg-icon">👥</div>
-            <div class="reg-title-block">
-                <h1>従業員を登録</h1>
-                <p>新しい従業員のアカウントと基本情報を入力してください</p>
-            </div>
-        </div>
-
-        ${req.query.success ? `<div class="reg-alert reg-alert-success"><i class="fa fa-circle-check"></i> 従業員登録が完了しました。</div>` : ''}
-        ${req.query.error   ? `<div class="reg-alert reg-alert-error"><i class="fa fa-triangle-exclamation"></i> 登録中にエラーが発生しました。再度お試しください。</div>` : ''}
-
-        <form action="/admin/register-employee" method="POST">
-            <div class="reg-card">
-
-                <div class="reg-section">
-                    <div class="reg-section-label"><i class="fa fa-lock" style="color:#3b82f6"></i>アカウント情報</div>
-                    <div class="reg-grid-2">
-                        <div class="reg-field">
-                            <div class="reg-label">ユーザー名 <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="text" name="username" required placeholder="例：yamada_taro">
-                        </div>
-                        <div class="reg-field">
-                            <div class="reg-label">パスワード <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="password" name="password" required placeholder="6文字以上推奨">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="reg-section">
-                    <div class="reg-section-label"><i class="fa fa-id-card" style="color:#3b82f6"></i>従業員情報</div>
-                    <div class="reg-grid-2">
-                        <div class="reg-field">
-                            <div class="reg-label">従業員ID <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="text" name="employeeId" required placeholder="例：EMP001">
-                        </div>
-                        <div class="reg-field">
-                            <div class="reg-label">氏名 <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="text" name="name" required placeholder="例：山田 太郎">
-                        </div>
-                        <div class="reg-field">
-                            <div class="reg-label">部署 <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="text" name="department" required placeholder="例：開発部">
-                        </div>
-                        <div class="reg-field">
-                            <div class="reg-label">職位 <span class="reg-required">必須</span></div>
-                            <input class="reg-input" type="text" name="position" required placeholder="例：エンジニア">
-                        </div>
-                    </div>
-                    <div class="reg-field" style="margin-top:16px">
-                        <div class="reg-label">入社日 <span class="reg-required">必須</span></div>
-                        <input class="reg-input" type="date" name="joinDate" required style="max-width:260px">
-                    </div>
-                </div>
-
-                <div class="reg-footer">
-                    <div class="reg-note"><i class="fa fa-info-circle"></i> <span class="reg-required">必須</span> は必ず入力してください</div>
-                    <div class="reg-btn-group">
-                        <a href="/admin" class="reg-btn-cancel"><i class="fa fa-arrow-left"></i> 戻る</a>
-                        <button type="submit" class="reg-btn-submit"><i class="fa fa-user-plus"></i> 従業員を登録する</button>
-                    </div>
-                </div>
-
-            </div>
-        </form>
-    </div>
-    `;
-    renderPage(req, res, '従業員登録', '従業員登録', html);
+    res.redirect('/hr/add');
 });
-
-// 管理者従業員登録処理
-router.post('/admin/register-employee', requireLogin, isAdmin, async (req, res) => {
-    try {
-        const hashedPassword = await bcrypt.hash(req.body.password, 10);
-        const user = new User({
-            username: req.body.username,
-            password: hashedPassword
-        });
-        await user.save();
-        
-        const employee = new Employee({
-            userId: user._id,
-            employeeId: req.body.employeeId,
-            name: req.body.name,
-            department: req.body.department,
-            position: req.body.position,
-            joinDate: new Date(req.body.joinDate)
-        });
-        await employee.save();
-        
-        res.redirect('/admin/register-employee?success=true');
-    } catch (error) {
-        console.error(error);
-        res.redirect('/admin/register-employee?error=true');
-    }
+router.post('/admin/register-employee', requireLogin, isAdmin, (req, res) => {
+    res.redirect('/hr/add');
 });
 
 // 管理者月別勤怠照会ページ
@@ -1762,3 +1655,12 @@ router.post('/admin/users/reset-password', requireLogin, isAdmin, async (req, re
 });
 
 module.exports = router;
+// ── 社員一覧JSON API（スキルマップセレクト用）──
+router.get('/admin/api/employees', async (req, res) => {
+    if (!req.session || !req.session.isAdmin) return res.status(403).json([]);
+    try {
+        const { Employee: EmpModel } = require('../models');
+        const emps = await EmpModel.find().select('_id name department position').lean();
+        res.json(emps);
+    } catch (e) { res.status(500).json([]); }
+});

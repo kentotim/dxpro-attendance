@@ -875,4 +875,337 @@ function addProject() {
 </script>`;
 }
 
+// ── スキルマップ集計API ────────────────────────────────────────────────────
+// GET /skillsheet/api/map?employeeId=xxx  個人レーダー用データ
+// GET /skillsheet/api/map/team            チーム全体バブルチャート用データ
+
+router.get('/skillsheet/api/map', requireLogin, async (req, res) => {
+    try {
+        const { employeeId } = req.query;
+        const targetId = employeeId || req.session.employeeId;
+        const sheet = await SkillSheet.findOne({ employeeId: targetId }).lean();
+        if (!sheet) return res.json({ labels: [], datasets: [] });
+
+        // カテゴリ別の平均レベルをレーダーチャート用に整形
+        const catAverages = SKILL_CATS.map(cat => {
+            const items = (sheet.skills && sheet.skills[cat.key]) || [];
+            if (items.length === 0) return { cat: cat.label, avg: 0, items };
+            const avg = items.reduce((s, i) => s + (i.level || 0), 0) / items.length;
+            return { cat: cat.label, avg: Math.round(avg * 10) / 10, items };
+        });
+
+        // 工程スキル（task実績カウント）
+        const taskCounts = TASK_LABELS.map(t => {
+            const count = (sheet.projects || []).filter(p => p.tasks && p.tasks[t.key]).length;
+            return { label: t.label, count };
+        });
+
+        res.json({
+            name: sheet.nameKana || '',
+            experience: sheet.experience || 0,
+            radar: {
+                labels: catAverages.map(c => c.cat),
+                data:   catAverages.map(c => c.avg),
+                max: 5
+            },
+            tasks: taskCounts,
+            topSkills: SKILL_CATS.flatMap(cat =>
+                ((sheet.skills && sheet.skills[cat.key]) || []).map(s => ({ ...s, cat: cat.label }))
+            ).sort((a, b) => b.level - a.level).slice(0, 10),
+            certifications: sheet.certifications || [],
+            projectCount: (sheet.projects || []).length
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/skillsheet/api/map/team', requireLogin, async (req, res) => {
+    try {
+        const sheets = await SkillSheet.find().lean();
+        const { Employee: Emp } = require('../models');
+        const employees = await Emp.find().lean();
+        const empMap = Object.fromEntries(employees.map(e => [e._id.toString(), e]));
+
+        const bubbleData = sheets.map(sheet => {
+            const emp = empMap[sheet.employeeId.toString()] || {};
+            // 全スキルの平均レベル
+            const allItems = SKILL_CATS.flatMap(cat => (sheet.skills && sheet.skills[cat.key]) || []);
+            const avgLevel = allItems.length > 0
+                ? Math.round(allItems.reduce((s, i) => s + (i.level || 0), 0) / allItems.length * 10) / 10
+                : 0;
+            const skillCount = allItems.length;
+
+            // 担当工程の幅（バブルサイズ）
+            const taskScore = TASK_LABELS.filter(t =>
+                (sheet.projects || []).some(p => p.tasks && p.tasks[t.key])
+            ).length;
+
+            return {
+                name: emp.name || sheet.nameKana || '不明',
+                department: emp.department || '-',
+                experience: sheet.experience || 0,
+                avgLevel,
+                skillCount,
+                taskScore,
+                projectCount: (sheet.projects || []).length
+            };
+        });
+
+        // カテゴリ別スキル保有者数（棒グラフ用）
+        const catStats = SKILL_CATS.map(cat => {
+            const holders = sheets.filter(s => (s.skills && s.skills[cat.key] || []).length > 0).length;
+            const avgLv = (() => {
+                const all = sheets.flatMap(s => (s.skills && s.skills[cat.key]) || []);
+                return all.length > 0 ? Math.round(all.reduce((a, i) => a + (i.level || 0), 0) / all.length * 10) / 10 : 0;
+            })();
+            return { cat: cat.label, holders, avgLv };
+        });
+
+        // スキル別ランキング（全員のスキルを集計）
+        const skillRank = {};
+        for (const sheet of sheets) {
+            for (const cat of SKILL_CATS) {
+                for (const item of (sheet.skills && sheet.skills[cat.key]) || []) {
+                    if (!skillRank[item.name]) skillRank[item.name] = { count: 0, totalLevel: 0, cat: cat.label };
+                    skillRank[item.name].count++;
+                    skillRank[item.name].totalLevel += (item.level || 0);
+                }
+            }
+        }
+        const topSkills = Object.entries(skillRank)
+            .map(([name, d]) => ({ name, count: d.count, avgLevel: Math.round(d.totalLevel / d.count * 10) / 10, cat: d.cat }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 20);
+
+        res.json({ bubbleData, catStats, topSkills, total: sheets.length });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── スキルマップ表示ページ ──────────────────────────────────────────────────
+router.get('/skillsheet/map', requireLogin, async (req, res) => {
+    try {
+        const isAdmin = !!req.session.isAdmin;
+        const employee = req.session.employee;
+
+        const content = `
+<div style="max-width:100%;margin:0 auto">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <h2 style="margin:0;font-size:22px;font-weight:800">
+        <i class="fa fa-chart-radar" style="color:#0f6fff"></i> スキルマップ
+    </h2>
+    <div style="display:flex;gap:8px">
+        <button id="btnPersonal" class="tab-btn active" onclick="switchTab('personal')">個人レーダー</button>
+        ${isAdmin ? '<button id="btnTeam" class="tab-btn" onclick="switchTab(\'team\')">チーム全体</button>' : ''}
+        <a href="/skillsheet" class="tab-btn" style="text-decoration:none">スキルシート編集</a>
+    </div>
+</div>
+
+<!-- 個人レーダーチャートタブ -->
+<div id="tabPersonal">
+    ${isAdmin ? `
+    <div style="margin-bottom:16px">
+        <label style="font-weight:600;margin-right:8px">社員を選択：</label>
+        <select id="empSelect" onchange="loadPersonal(this.value)"
+                style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px">
+            <option value="">-- 選択してください --</option>
+        </select>
+    </div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px 60px" id="personalGrid">
+        <div class="sk-card">
+            <h4>カテゴリ別スキルレベル（レーダー）</h4>
+            <canvas id="radarChart" width="500" height="500"></canvas>
+        </div>
+        <div class="sk-card">
+            <h4>担当工程実績</h4>
+            <canvas id="taskChart" width="500" height="500"></canvas>
+        </div>
+        <div class="sk-card" style="grid-column:1/-1">
+            <h4>スキルTop10</h4>
+            <div id="topSkillsBar"></div>
+        </div>
+    </div>
+    <div id="personalEmpty" style="display:none;text-align:center;padding:60px;color:#94a3b8">
+        スキルシートにデータがありません
+    </div>
+</div>
+
+<!-- チーム全体タブ（管理者のみ） -->
+${isAdmin ? `
+<div id="tabTeam" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="sk-card" style="grid-column:1/-1">
+            <h4>カテゴリ別スキル保有者数 ＆ 平均レベル</h4>
+            <canvas id="catBarChart" height="200"></canvas>
+        </div>
+        <div class="sk-card" style="grid-column:1/-1">
+            <h4>スキル人気ランキング Top20（バブル＝保有者数）</h4>
+            <canvas id="bubbleChart" height="300"></canvas>
+        </div>
+        <div class="sk-card" style="grid-column:1/-1">
+            <h4>メンバー別 スキル概要</h4>
+            <div id="memberTable"></div>
+        </div>
+    </div>
+</div>` : ''}
+</div>
+
+<style>
+.sk-card{background:#fff;border-radius:14px;padding:80px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px}
+.sk-card h4{margin:0 0 16px;font-size:15px;color:#334155}
+.tab-btn{background:#f1f5f9;color:#334155;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
+.tab-btn.active{background:#0f6fff;color:#fff}
+.skill-bar-wrap{margin-bottom:8px}
+.skill-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+.skill-bar-bg{background:#f1f5f9;border-radius:6px;height:10px}
+.skill-bar-fill{height:10px;border-radius:6px;background:linear-gradient(90deg,#0f6fff,#38bdf8);transition:width .4s}
+.member-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #f1f5f9}
+.member-row:hover{background:#f8fafc}
+@media(max-width:700px){#personalGrid{grid-template-columns:1fr!important}}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+let radarChart, taskChart, catBarChart, bubbleChart;
+
+function switchTab(tab) {
+    document.getElementById('tabPersonal').style.display = tab === 'personal' ? '' : 'none';
+    const teamEl = document.getElementById('tabTeam');
+    if (teamEl) teamEl.style.display = tab === 'team' ? '' : 'none';
+    document.getElementById('btnPersonal').className = 'tab-btn' + (tab === 'personal' ? ' active' : '');
+    const btnTeam = document.getElementById('btnTeam');
+    if (btnTeam) btnTeam.className = 'tab-btn' + (tab === 'team' ? ' active' : '');
+    if (tab === 'team') loadTeam();
+}
+
+// ── 個人レーダー ──
+async function loadPersonal(empId) {
+    const url = '/skillsheet/api/map' + (empId ? '?employeeId=' + empId : '');
+    const d = await fetch(url).then(r => r.json());
+
+    const hasData = d.radar && d.radar.data.some(v => v > 0);
+    document.getElementById('personalEmpty').style.display = hasData ? 'none' : '';
+    document.getElementById('personalGrid').style.display = hasData ? '' : 'none';
+    if (!hasData) return;
+
+    // レーダーチャート
+    if (radarChart) radarChart.destroy();
+    radarChart = new Chart(document.getElementById('radarChart'), {
+        type: 'radar',
+        data: {
+            labels: d.radar.labels,
+            datasets: [{ label: d.name || 'スキル', data: d.radar.data,
+                backgroundColor: 'rgba(15,111,255,0.15)', borderColor: '#0f6fff',
+                pointBackgroundColor: '#0f6fff', borderWidth: 2 }]
+        },
+        options: { scales: { r: { min: 0, max: 5, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
+    });
+
+    // 工程棒グラフ
+    if (taskChart) taskChart.destroy();
+    taskChart = new Chart(document.getElementById('taskChart'), {
+        type: 'bar',
+        data: {
+            labels: d.tasks.map(t => t.label),
+            datasets: [{ label: '担当案件数', data: d.tasks.map(t => t.count),
+                backgroundColor: '#0f6fff', borderRadius: 6 }]
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } },
+                   scales: { x: { ticks: { stepSize: 1 } } } }
+    });
+
+    // Top10スキルバー
+    const container = document.getElementById('topSkillsBar');
+    container.innerHTML = d.topSkills.map(s => {
+        const pct = Math.round(s.level / 5 * 100);
+        return '<div class="skill-bar-wrap">' +
+               '<div class="skill-bar-label"><span>' + s.name + ' <small style="color:#94a3b8">(' + s.cat + ')</small></span><span>' + s.level + '/5</span></div>' +
+               '<div class="skill-bar-bg"><div class="skill-bar-fill" style="width:' + pct + '%"></div></div></div>';
+    }).join('');
+}
+
+// ── チーム全体 ──
+let teamLoaded = false;
+async function loadTeam() {
+    if (teamLoaded) return;
+    teamLoaded = true;
+    const d = await fetch('/skillsheet/api/map/team').then(r => r.json());
+
+    // カテゴリ別棒グラフ
+    if (catBarChart) catBarChart.destroy();
+    catBarChart = new Chart(document.getElementById('catBarChart'), {
+        type: 'bar',
+        data: {
+            labels: d.catStats.map(c => c.cat),
+            datasets: [
+                { label: '保有者数（人）', data: d.catStats.map(c => c.holders),
+                  backgroundColor: 'rgba(15,111,255,0.7)', borderRadius: 4, yAxisID: 'y' },
+                { label: '平均レベル', data: d.catStats.map(c => c.avgLv),
+                  type: 'line', borderColor: '#f59e0b', pointBackgroundColor: '#f59e0b',
+                  tension: 0.3, yAxisID: 'y1' }
+            ]
+        },
+        options: { scales: {
+            y: { beginAtZero: true, title: { display: true, text: '保有者数' } },
+            y1: { beginAtZero: true, max: 5, position: 'right', title: { display: true, text: '平均レベル' }, grid: { drawOnChartArea: false } }
+        }}
+    });
+
+    // スキルバブルチャート（横棒で代替）
+    if (bubbleChart) bubbleChart.destroy();
+    bubbleChart = new Chart(document.getElementById('bubbleChart'), {
+        type: 'bar',
+        data: {
+            labels: d.topSkills.map(s => s.name),
+            datasets: [
+                { label: '保有者数', data: d.topSkills.map(s => s.count),
+                  backgroundColor: 'rgba(15,111,255,0.7)', borderRadius: 4, yAxisID: 'y' },
+                { label: '平均レベル', data: d.topSkills.map(s => s.avgLevel),
+                  type: 'line', borderColor: '#10b981', pointBackgroundColor: '#10b981',
+                  tension: 0.3, yAxisID: 'y1' }
+            ]
+        },
+        options: { indexAxis: 'y', scales: {
+            y: { ticks: { font: { size: 11 } } },
+            y1: { beginAtZero: true, max: 5, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '平均レベル' } }
+        }}
+    });
+
+    // メンバーテーブル
+    const tbl = document.getElementById('memberTable');
+    tbl.innerHTML = d.bubbleData.sort((a, b) => b.avgLevel - a.avgLevel).map(m =>
+        '<div class="member-row">' +
+        '<div style="min-width:120px;font-weight:600">' + m.name + '</div>' +
+        '<div style="min-width:100px;color:#64748b;font-size:13px">' + m.department + '</div>' +
+        '<div style="min-width:80px;font-size:13px">経験 <b>' + m.experience + '</b>年</div>' +
+        '<div style="min-width:80px;font-size:13px">平均 <b>' + m.avgLevel + '</b>/5</div>' +
+        '<div style="min-width:80px;font-size:13px">スキル <b>' + m.skillCount + '</b>件</div>' +
+        '<div style="font-size:13px">案件 <b>' + m.projectCount + '</b>件</div>' +
+        '</div>'
+    ).join('');
+}
+
+// ── 管理者：社員一覧を取得してセレクト生成 ──
+${isAdmin ? `
+(async () => {
+    const sel = document.getElementById('empSelect');
+    if (!sel) return;
+    const emps = await fetch('/admin/api/employees').then(r => r.json()).catch(() => []);
+    emps.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e._id; opt.textContent = e.name + ' (' + e.department + ')';
+        sel.appendChild(opt);
+    });
+    // デフォルトで最初の社員を表示
+    if (emps.length > 0) { sel.value = emps[0]._id; loadPersonal(emps[0]._id); }
+})();` : `loadPersonal();`}
+</script>
+`;
+        const { buildPageShell, pageFooter } = require('../lib/renderPage');
+        res.send(buildPageShell({ title: 'スキルマップ', currentPath: '/skillsheet/map', employee, isAdmin }) + content + pageFooter());
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('エラー: ' + e.message);
+    }
+});
+
 module.exports = router;
+

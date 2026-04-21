@@ -1,0 +1,99 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "attendance": "Chấm công",
+    "daily_report": "Báo cáo ngày",
+    "goals": "Quản lý mục tiêu",
+    "skillsheet": "Bảng kỹ năng",
+    "hr": "Quản lý nhân sự",
+    "payroll": "Phiếu lương",
+    "leave_apply": "Đăng ký nghỉ phép",
+    "leave_history": "Lịch sử nghỉ phép",
+    "overtime": "Đăng ký làm thêm giờ",
+    "board": "Bảng thông báo",
+    "rules": "Nội quy công ty",
+    "education": "Đào tạo",
+    "edu_site": "Trang đào tạo",
+    "edu_test": "Làm bài kiểm tra",
+    "edu_answers": "Đáp án mẫu",
+    "edu_admin": "Danh sách bài kiểm tra (Admin)",
+    "links": "Liên kết",
+    "admin_menu": "Menu quản trị",
+    "admin_top": "Bảng điều khiển",
+    "admin_payroll": "Quản lý lương",
+    "admin_leave": "Phê duyệt nghỉ phép",
+    "admin_overtime": "Quản lý làm thêm giờ",
+    "admin_leave_balance": "Phân bổ ngày nghỉ",
+    "admin_add_employee": "Thêm nhân viên",
+    "admin_users": "Phân quyền người dùng",
+    "change_password": "Đổi mật khẩu",
+    "logout": "Đăng xuất",
+    "main_section": "Chính",
+    "work_section": "Công việc & Chấm công",
+    "hr_section": "Nhân sự & Lương",
+    "info_section": "Thông tin",
+    "edu_section": "Đào tạo"
+  },
+  "topbar": {
+    "admin_badge": "Quản trị viên",
+    "notifications": "Thông báo",
+    "mark_all_read": "Đánh dấu tất cả đã đọc",
+    "see_all": "Xem tất cả",
+    "loading": "Đang tải..."
+  },
+  "role": {
+    "admin": "Quản trị viên",
+    "employee": "Nhân viên"
+  },
+  "lang": {
+    "select": "Ngôn ngữ",
+    "ja": "日本語",
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "attendance": {
+    "checkin": "Chấm công vào",
+    "checkout": "Chấm công ra",
+    "gps_checkin": "Chấm công GPS vào",
+    "gps_checkout": "Chấm công GPS ra",
+    "status": "Trạng thái",
+    "working": "Đang làm việc",
+    "off": "Chưa chấm công",
+    "date": "Ngày",
+    "time": "Giờ"
+  },
+  "common": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "back": "Quay lại",
+    "submit": "Gửi",
+    "search": "Tìm kiếm",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "success": "Thành công",
+    "error": "Lỗi",
+    "loading": "Đang tải...",
+    "no_data": "Không có dữ liệu",
+    "required": "Bắt buộc",
+    "optional": "Tùy chọn"
+  },
+  "dashboard": {
+    "greeting_morning": "Chào buổi sáng",
+    "greeting_afternoon": "Xin chào",
+    "greeting_evening": "Chào buổi tối",
+    "today": "Hôm nay",
+    "this_week": "Tuần này",
+    "this_month": "Tháng này"
+  },
+  "leave": {
+    "apply": "Đăng ký",
+    "status_pending": "Đang chờ",
+    "status_approved": "Đã duyệt",
+    "status_rejected": "Bị từ chối",
+    "type_paid": "Nghỉ phép có lương",
+    "type_sick": "Nghỉ ốm",
+    "type_other": "Khác"
+  }
+}

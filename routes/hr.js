@@ -6,6 +6,7 @@ const moment = require("moment-timezone");
 const pdf = require("html-pdf");
 const multer = require("multer");
 const path = require("path");
+const bcrypt = require("bcryptjs");
 const {
   User,
   Employee,
@@ -803,330 +804,153 @@ router.get("/hr", requireLogin, async (req, res) => {
   }
 });
 
-// 社員追加
-router.get("/hr/add", requireLogin, (req, res) => {
+// 社員追加（統合フォーム）
+router.get("/hr/add", requireLogin, isAdmin, (req, res) => {
   const html = `
-        <style>
-            /* ── ページ全体ラッパー ── */
-            .hradd-wrap {
-                max-width: 680px;
-                margin: 0 auto;
-                padding: 0 0 60px;
-            }
+<style>
+.hradd-wrap{max-width:700px;margin:0 auto;padding:0 0 60px}
+.hradd-breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;margin-bottom:24px}
+.hradd-breadcrumb a{color:#64748b;text-decoration:none;transition:color .15s}
+.hradd-breadcrumb a:hover{color:#3b82f6}
+.hradd-breadcrumb .sep{color:#cbd5e1}
+.hradd-header{display:flex;align-items:center;gap:16px;margin-bottom:32px}
+.hradd-icon{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(59,130,246,.35)}
+.hradd-title-block h1{margin:0 0 4px;font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-.3px}
+.hradd-title-block p{margin:0;font-size:13px;color:#64748b}
+.hradd-alert{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:18px}
+.hradd-alert-success{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+.hradd-alert-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.hradd-card{background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 32px rgba(15,23,42,.08);overflow:hidden}
+.hradd-section{padding:28px 32px}
+.hradd-section+.hradd-section{border-top:1px solid #f1f5f9}
+.hradd-section-label{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:20px}
+.hradd-section-label::after{content:'';flex:1;height:1px;background:#f1f5f9}
+.hradd-field{margin-bottom:18px}
+.hradd-field:last-child{margin-bottom:0}
+.hradd-label{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#475569;margin-bottom:7px}
+.hradd-required{display:inline-block;background:#fef2f2;color:#ef4444;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
+.hradd-input{width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:14px;color:#0f172a;background:#fafbfc;outline:none;transition:border-color .18s,box-shadow .18s,background .18s;box-sizing:border-box}
+.hradd-input::placeholder{color:#c0c8d4}
+.hradd-input:hover{border-color:#c7d2e0;background:#fff}
+.hradd-input:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.hradd-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.hradd-hint{font-size:11px;color:#94a3b8;margin-top:4px}
+.hradd-footer{padding:20px 32px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hradd-note{font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px}
+.hradd-btn-group{display:flex;gap:10px}
+.hradd-btn-cancel{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#fff;color:#475569;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;transition:border-color .15s,color .15s}
+.hradd-btn-cancel:hover{border-color:#94a3b8;color:#1e293b}
+.hradd-btn-submit{display:inline-flex;align-items:center;gap:8px;padding:10px 26px;background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(59,130,246,.35);transition:opacity .15s,transform .1s}
+.hradd-btn-submit:hover{opacity:.92;transform:translateY(-1px)}
+@media(max-width:540px){.hradd-section{padding:22px 18px}.hradd-footer{flex-direction:column;align-items:stretch;padding:18px}.hradd-btn-group{flex-direction:column-reverse}.hradd-grid-2{grid-template-columns:1fr}}
+</style>
 
-            /* ── パンくず ── */
-            .hradd-breadcrumb {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-                color: #94a3b8;
-                margin-bottom: 24px;
-            }
-            .hradd-breadcrumb a {
-                color: #64748b;
-                text-decoration: none;
-                transition: color .15s;
-            }
-            .hradd-breadcrumb a:hover { color: #3b82f6; }
-            .hradd-breadcrumb .sep { color: #cbd5e1; }
+<div class="hradd-wrap">
+    <nav class="hradd-breadcrumb">
+        <a href="/hr"><i class="fa fa-users"></i> 人事管理</a>
+        <span class="sep">›</span>
+        <span>社員追加</span>
+    </nav>
+    <div class="hradd-header">
+        <div class="hradd-icon">👤</div>
+        <div class="hradd-title-block">
+            <h1>社員を追加</h1>
+            <p>新しい社員のアカウントと基本情報を入力してください</p>
+        </div>
+    </div>
 
-            /* ── ヘッダー ── */
-            .hradd-header {
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                margin-bottom: 32px;
-            }
-            .hradd-icon {
-                width: 52px;
-                height: 52px;
-                border-radius: 14px;
-                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 22px;
-                flex-shrink: 0;
-                box-shadow: 0 4px 14px rgba(59,130,246,.35);
-            }
-            .hradd-title-block h1 {
-                margin: 0 0 4px;
-                font-size: 22px;
-                font-weight: 800;
-                color: #0f172a;
-                letter-spacing: -.3px;
-            }
-            .hradd-title-block p {
-                margin: 0;
-                font-size: 13px;
-                color: #64748b;
-            }
+    ${req.query.success ? `<div class="hradd-alert hradd-alert-success"><i class="fa fa-circle-check"></i> 社員を登録しました。</div>` : ''}
+    ${req.query.error   ? `<div class="hradd-alert hradd-alert-error"><i class="fa fa-triangle-exclamation"></i> エラーが発生しました：${req.query.error}</div>` : ''}
 
-            /* ── カード ── */
-            .hradd-card {
-                background: #fff;
-                border-radius: 18px;
-                box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 32px rgba(15,23,42,.08);
-                overflow: hidden;
-            }
+    <form action="/hr/add" method="POST">
+        <div class="hradd-card">
 
-            /* ── セクション ── */
-            .hradd-section {
-                padding: 28px 32px;
-            }
-            .hradd-section + .hradd-section {
-                border-top: 1px solid #f1f5f9;
-            }
-            .hradd-section-label {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: .08em;
-                text-transform: uppercase;
-                color: #94a3b8;
-                margin-bottom: 20px;
-            }
-            .hradd-section-label::after {
-                content: '';
-                flex: 1;
-                height: 1px;
-                background: #f1f5f9;
-            }
-
-            /* ── フィールド ── */
-            .hradd-field {
-                margin-bottom: 18px;
-            }
-            .hradd-field:last-child { margin-bottom: 0; }
-            .hradd-label {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #475569;
-                margin-bottom: 7px;
-                letter-spacing: .01em;
-            }
-            .hradd-required {
-                display: inline-block;
-                background: #fef2f2;
-                color: #ef4444;
-                font-size: 10px;
-                font-weight: 700;
-                padding: 1px 6px;
-                border-radius: 4px;
-                letter-spacing: .02em;
-            }
-            .hradd-input {
-                width: 100%;
-                padding: 11px 14px;
-                border-radius: 10px;
-                border: 1.5px solid #e2e8f0;
-                font-size: 14px;
-                color: #0f172a;
-                background: #fafbfc;
-                outline: none;
-                transition: border-color .18s, box-shadow .18s, background .18s;
-                box-sizing: border-box;
-            }
-            .hradd-input::placeholder { color: #c0c8d4; }
-            .hradd-input:hover { border-color: #c7d2e0; background: #fff; }
-            .hradd-input:focus {
-                border-color: #3b82f6;
-                background: #fff;
-                box-shadow: 0 0 0 3px rgba(59,130,246,.12);
-            }
-
-            /* ── グリッド ── */
-            .hradd-grid-2 {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
-            }
-
-            /* ── フッター（ボタンエリア） ── */
-            .hradd-footer {
-                padding: 20px 32px;
-                background: #f8fafc;
-                border-top: 1px solid #f1f5f9;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 12px;
-            }
-            .hradd-note {
-                font-size: 12px;
-                color: #94a3b8;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-            .hradd-btn-group {
-                display: flex;
-                gap: 10px;
-            }
-            .hradd-btn-cancel {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                padding: 10px 20px;
-                background: #fff;
-                color: #475569;
-                border: 1.5px solid #e2e8f0;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: 600;
-                text-decoration: none;
-                cursor: pointer;
-                transition: border-color .15s, color .15s, background .15s;
-            }
-            .hradd-btn-cancel:hover {
-                border-color: #94a3b8;
-                color: #1e293b;
-                background: #f8fafc;
-            }
-            .hradd-btn-submit {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                padding: 10px 26px;
-                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-                color: #fff;
-                border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: 700;
-                cursor: pointer;
-                box-shadow: 0 2px 10px rgba(59,130,246,.35);
-                transition: opacity .15s, box-shadow .15s, transform .1s;
-                letter-spacing: .01em;
-            }
-            .hradd-btn-submit:hover {
-                opacity: .92;
-                box-shadow: 0 4px 16px rgba(59,130,246,.45);
-                transform: translateY(-1px);
-            }
-            .hradd-btn-submit:active { transform: translateY(0); }
-
-            @media (max-width: 540px) {
-                .hradd-section { padding: 22px 18px; }
-                .hradd-footer { flex-direction: column; align-items: stretch; padding: 18px; }
-                .hradd-btn-group { flex-direction: column-reverse; }
-                .hradd-grid-2 { grid-template-columns: 1fr; }
-                .hradd-btn-cancel, .hradd-btn-submit { justify-content: center; }
-            }
-        </style>
-
-        <div class="hradd-wrap">
-            <!-- パンくず -->
-            <nav class="hradd-breadcrumb">
-                <a href="/hr"><i class="fa fa-users"></i> 人事管理</a>
-                <span class="sep">›</span>
-                <span>社員追加</span>
-            </nav>
-
-            <!-- ヘッダー -->
-            <div class="hradd-header">
-                <div class="hradd-icon">👤</div>
-                <div class="hradd-title-block">
-                    <h1>社員を追加</h1>
-                    <p>新しい社員の基本情報を入力してください</p>
+            <!-- ログイン情報 -->
+            <div class="hradd-section">
+                <div class="hradd-section-label"><i class="fa fa-lock" style="color:#3b82f6"></i>ログイン情報</div>
+                <div class="hradd-grid-2">
+                    <div class="hradd-field">
+                        <div class="hradd-label">ユーザー名 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="text" name="username" required placeholder="例：yamada_taro">
+                        <div class="hradd-hint">ログイン時に使用します</div>
+                    </div>
+                    <div class="hradd-field">
+                        <div class="hradd-label">パスワード <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="password" name="password" required placeholder="6文字以上推奨">
+                    </div>
                 </div>
             </div>
 
-            <!-- カード -->
-            <form action="/hr/add" method="POST">
-                <div class="hradd-card">
-
-                    <!-- 基本情報 -->
-                    <div class="hradd-section">
-                        <div class="hradd-section-label">
-                            <i class="fa fa-id-card" style="color:#3b82f6"></i>
-                            基本情報
-                        </div>
-
-                        <div class="hradd-field">
-                            <div class="hradd-label">
-                                氏名 <span class="hradd-required">必須</span>
-                            </div>
-                            <input class="hradd-input" name="name" required placeholder="例：山田 太郎">
-                        </div>
-
-                        <div class="hradd-grid-2">
-                            <div class="hradd-field">
-                                <div class="hradd-label">
-                                    部署 <span class="hradd-required">必須</span>
-                                </div>
-                                <input class="hradd-input" name="department" required placeholder="例：開発部">
-                            </div>
-                            <div class="hradd-field">
-                                <div class="hradd-label">
-                                    役職 <span class="hradd-required">必須</span>
-                                </div>
-                                <input class="hradd-input" name="position" required placeholder="例：エンジニア">
-                            </div>
-                        </div>
+            <!-- 基本情報 -->
+            <div class="hradd-section">
+                <div class="hradd-section-label"><i class="fa fa-id-card" style="color:#3b82f6"></i>社員情報</div>
+                <div class="hradd-grid-2">
+                    <div class="hradd-field">
+                        <div class="hradd-label">社員番号 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="text" name="employeeId" required placeholder="例：EMP001">
                     </div>
-
-                    <!-- 雇用情報 -->
-                    <div class="hradd-section">
-                        <div class="hradd-section-label">
-                            <i class="fa fa-calendar-alt" style="color:#3b82f6"></i>
-                            雇用情報
-                        </div>
-
-                        <div class="hradd-grid-2">
-                            <div class="hradd-field">
-                                <div class="hradd-label">
-                                    入社日 <span class="hradd-required">必須</span>
-                                </div>
-                                <input class="hradd-input" type="date" name="joinDate" required>
-                            </div>
-                            <div class="hradd-field">
-                                <div class="hradd-label">メールアドレス</div>
-                                <input class="hradd-input" type="email" name="email" placeholder="例：yamada@company.com">
-                            </div>
-                        </div>
+                    <div class="hradd-field">
+                        <div class="hradd-label">氏名 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="text" name="name" required placeholder="例：山田 太郎">
                     </div>
-
-                    <!-- フッター -->
-                    <div class="hradd-footer">
-                        <div class="hradd-note">
-                            <i class="fa fa-info-circle"></i>
-                            <span class="hradd-required">必須</span> は必ず入力してください
-                        </div>
-                        <div class="hradd-btn-group">
-                            <a href="/hr" class="hradd-btn-cancel">
-                                <i class="fa fa-times"></i> キャンセル
-                            </a>
-                            <button type="submit" class="hradd-btn-submit">
-                                <i class="fa fa-user-plus"></i> 社員を追加する
-                            </button>
-                        </div>
+                    <div class="hradd-field">
+                        <div class="hradd-label">部署 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="text" name="department" required placeholder="例：開発部">
                     </div>
-
+                    <div class="hradd-field">
+                        <div class="hradd-label">役職 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="text" name="position" required placeholder="例：エンジニア">
+                    </div>
                 </div>
-            </form>
+                <div class="hradd-grid-2" style="margin-top:0">
+                    <div class="hradd-field">
+                        <div class="hradd-label">入社日 <span class="hradd-required">必須</span></div>
+                        <input class="hradd-input" type="date" name="joinDate" required>
+                    </div>
+                    <div class="hradd-field">
+                        <div class="hradd-label">メールアドレス</div>
+                        <input class="hradd-input" type="email" name="email" placeholder="例：yamada@company.com">
+                    </div>
+                </div>
+            </div>
+
+            <!-- フッター -->
+            <div class="hradd-footer">
+                <div class="hradd-note"><i class="fa fa-info-circle"></i> <span class="hradd-required">必須</span> は必ず入力してください</div>
+                <div class="hradd-btn-group">
+                    <a href="/hr" class="hradd-btn-cancel"><i class="fa fa-arrow-left"></i> 戻る</a>
+                    <button type="submit" class="hradd-btn-submit"><i class="fa fa-user-plus"></i> 社員を登録する</button>
+                </div>
+            </div>
+
         </div>
-    `;
-  renderPage(req, res, "社員追加", "新しい社員を追加", html);
+    </form>
+</div>
+`;
+  renderPage(req, res, "社員追加", "社員追加", html);
 });
 
-router.post("/hr/add", requireLogin, async (req, res) => {
-  const { name, department, position, joinDate, email } = req.body;
-  await Employee.create({
-    name,
-    department,
-    position,
-    joinDate,
-    email,
-    paidLeave: 10,
-  });
-  res.redirect("/hr");
+router.post("/hr/add", requireLogin, isAdmin, async (req, res) => {
+  try {
+    const { username, password, employeeId, name, department, position, joinDate, email } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ username, password: hashedPassword });
+    await Employee.create({
+      userId: user._id,
+      employeeId,
+      name,
+      department,
+      position,
+      joinDate,
+      email,
+      paidLeave: 10,
+    });
+    res.redirect("/hr/add?success=1");
+  } catch (e) {
+    console.error(e);
+    const msg = e.code === 11000 ? encodeURIComponent('ユーザー名または社員番号が重複しています') : encodeURIComponent(e.message);
+    res.redirect("/hr/add?error=" + msg);
+  }
 });
 
 // 社員編集
@@ -1970,8 +1794,13 @@ router.get("/hr/payroll", requireLogin, async (req, res) => {
 
   const isAdmin = req.session.isAdmin;
 
-  // 直近12件の給与明細を取得
-  const slips = await PayrollSlip.find({ employeeId: employee._id })
+  // 直近12件の給与明細を取得（発行済み・確定・支払済みのみ社員に表示）
+  const visibleStatuses = req.session.isAdmin
+    ? undefined  // 管理者は全ステータス表示
+    : { $in: ['issued', 'locked', 'paid'] };
+  const slipQuery = { employeeId: employee._id };
+  if (visibleStatuses) slipQuery.status = visibleStatuses;
+  const slips = await PayrollSlip.find(slipQuery)
     .populate("runId")
     .sort({ createdAt: -1 })
     .limit(12);
@@ -2261,6 +2090,7 @@ router.get("/hr/payroll/:id", requireLogin, async (req, res) => {
   const slips = await PayrollSlip.find({
     employeeId: employee._id,
     ...(payMonth ? { runId: { $in: runIds } } : {}),
+    ...(!req.session.isAdmin ? { status: { $in: ['issued', 'locked', 'paid'] } } : {}),
   })
     .populate("runId")
     .sort({ createdAt: -1 });
@@ -4092,6 +3922,861 @@ router.post("/hr/daily-report/:id/delete", requireLogin, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// 日報AI要約ページ & API（:id ルートより前に定義する必要あり）
+// ─────────────────────────────────────────────────────────────────────
+
+// 管理者向け日報AI要約ページ
+// ══════════════════════════════════════════════════════════════════════
+// 日報 AI要約センター（生成型AIページ）
+// ══════════════════════════════════════════════════════════════════════
+
+router.get('/hr/daily-report/summary', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect('/');
+    const { buildPageShell, pageFooter } = require('../lib/renderPage');
+    const momentTz = require('moment-timezone');
+    const employee = await Employee.findOne({ userId: req.session.userId }).lean();
+
+    // 直近7日の統計を事前取得
+    const now = momentTz().tz('Asia/Tokyo');
+    const weekFrom  = now.clone().subtract(7, 'days').startOf('day').toDate();
+    const monthFrom = now.clone().subtract(1, 'month').startOf('month').toDate();
+    const monthTo   = now.clone().subtract(1, 'month').endOf('month').toDate();
+
+    const [weekReports, monthReports, totalEmployees] = await Promise.all([
+        DailyReport.find({ reportDate: { $gte: weekFrom } }).lean().catch(() => []),
+        DailyReport.find({ reportDate: { $gte: monthFrom, $lte: monthTo } }).lean().catch(() => []),
+        Employee.countDocuments({ isActive: { $ne: false } }).catch(() => 0),
+    ]);
+
+    const weekUniq  = new Set(weekReports.map(r => r.userId?.toString())).size;
+    const monthUniq = new Set(monthReports.map(r => r.userId?.toString())).size;
+    const weekRate  = totalEmployees ? Math.round(weekUniq / totalEmployees * 100) : 0;
+    const hasApiKey = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here');
+
+    const content = `
+<style>
+:root{--indigo:#4338ca;--indigo-light:#6366f1;--green:#059669;--red:#dc2626;--slate:#475569}
+*{box-sizing:border-box}
+.g{max-width:1040px;margin:0 auto;padding:24px 16px}
+
+/* ── ヒーロー ── */
+.hero{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);border-radius:16px;padding:26px 32px;color:#fff;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 50%,rgba(99,102,241,.3),transparent 60%);pointer-events:none}
+.hero h1{margin:0;font-size:21px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin:5px 0 0;font-size:13px;opacity:.75}
+.ai-live{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(8px)}
+.dot{width:8px;height:8px;border-radius:50%;background:#34d399;animation:blink 1.8s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── KPI ── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+@media(max-width:680px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.kpi-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:5px}
+.kpi-v{font-size:26px;font-weight:800;color:#0f172a;line-height:1}
+.kpi-s{font-size:11px;color:#94a3b8;margin-top:3px}
+.kpi-bar{height:3px;border-radius:2px;background:#f1f5f9;margin-top:10px;overflow:hidden}
+.kpi-fill{height:100%;border-radius:2px;transition:width 1.2s ease}
+
+/* ── パネル ── */
+.panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #f1f5f9;background:#fafbff}
+.pt{font-size:14px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:7px}
+.pb{padding:20px}
+
+/* ── 期間・スタイルセレクター ── */
+.row2{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.seg{display:flex;gap:4px;background:#f1f5f9;border-radius:9px;padding:4px;flex:1;min-width:200px}
+.seg-btn{flex:1;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;background:none;transition:all .15s;white-space:nowrap}
+.seg-btn.on{background:#fff;color:var(--indigo);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* ── クイック質問チップ ── */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+.chip{padding:6px 13px;border:1.5px solid #e2e8f0;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;color:#475569;background:#fff;transition:all .15s;white-space:nowrap}
+.chip:hover{border-color:var(--indigo-light);color:var(--indigo-light);background:#f0f0ff}
+.chip.active{border-color:var(--indigo);color:#fff;background:var(--indigo)}
+
+/* ── ストリーミング出力 ── */
+.stream-box{background:#0f172a;border-radius:12px;padding:22px;font-size:13.5px;line-height:2;color:#e2e8f0;min-height:180px;font-family:'Menlo','Consolas',monospace;white-space:pre-wrap;word-break:break-word;position:relative;transition:opacity .2s;overflow:auto;max-height:480px}
+.stream-box.empty{color:#475569}
+.cursor{display:inline-block;width:2px;height:1em;background:#818cf8;margin-left:2px;animation:blink 1s step-end infinite;vertical-align:text-bottom}
+.stream-toolbar{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.stream-meta{font-size:12px;color:#64748b}
+.icon-btn{padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:#475569;transition:all .1s;display:inline-flex;align-items:center;gap:5px}
+.icon-btn:hover{background:#f1f5f9}
+
+/* ── アクションボタン ── */
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:11px 22px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn-gen{background:linear-gradient(135deg,#312e81,var(--indigo-light));color:#fff}
+.btn-gen:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(99,102,241,.45)}
+.btn-mail{background:linear-gradient(135deg,#064e3b,var(--green));color:#fff}
+.btn-mail:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(5,150,105,.4)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+/* ── チャット ── */
+.chat-history{min-height:120px;max-height:420px;overflow-y:auto;padding:10px 0;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;align-items:flex-start;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.msg.ai .msg-avatar{background:linear-gradient(135deg,#312e81,var(--indigo-light));color:#fff}
+.msg.user .msg-avatar{background:linear-gradient(135deg,#064e3b,var(--green));color:#fff}
+.msg-bubble{padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.7;max-width:84%;white-space:pre-wrap;word-break:break-word}
+.msg.ai .msg-bubble{background:#f8fafc;border:1px solid #e2e8f0;color:#334155;border-top-left-radius:2px}
+.msg.user .msg-bubble{background:linear-gradient(135deg,#312e81,var(--indigo-light));color:#fff;border-top-right-radius:2px}
+.msg-bubble.streaming::after{content:'▋';animation:blink .8s step-end infinite;color:var(--indigo-light)}
+.chat-input-row{display:flex;gap:8px;margin-top:14px}
+.chat-input{flex:1;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;transition:border .15s;font-family:inherit;resize:none;min-height:42px;max-height:100px}
+.chat-input:focus{border-color:var(--indigo-light)}
+.chat-send{padding:10px 18px;background:linear-gradient(135deg,#312e81,var(--indigo-light));color:#fff;border:none;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;align-self:flex-end}
+.chat-send:disabled{opacity:.4;cursor:not-allowed}
+.chat-empty{color:#94a3b8;font-size:13px;text-align:center;padding:24px 0}
+
+/* ── 個人カード ── */
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:11px}
+.emp-card{border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;background:#fafbff;transition:box-shadow .15s}
+.emp-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.emp-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.emp-av{width:32px;height:32px;border-radius:8px;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-name{font-weight:700;font-size:12px;color:#1e293b}
+.emp-dept{font-size:11px;color:#64748b}
+.emp-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:#ede9fe;color:#5b21b6}
+.emp-ex{font-size:11px;color:#475569;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── トースト ── */
+.toast{padding:9px 15px;border-radius:8px;font-size:12px;font-weight:600;display:none;margin-top:10px;animation:fadein .3s ease}
+.toast.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d}
+.toast.err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+
+/* ── スケジュール ── */
+.sch-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #f1f5f9;gap:12px;flex-wrap:wrap}
+.sch-row:last-child{border-bottom:none}
+.sch-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700}
+
+/* ── no-api banner ── */
+.no-api{padding:10px 15px;background:#fefce8;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#92400e;margin-top:14px;display:${hasApiKey ? 'none' : 'block'}}
+</style>
+
+<div class="g">
+
+<!-- ヒーロー -->
+<div class="hero">
+    <div>
+        <h1>🤖 日報 AI要約センター</h1>
+        <p>GPT-4o-mini がリアルタイムで日報を分析。チャットで深掘りも可能です。</p>
+    </div>
+    <div class="ai-live"><span class="dot"></span> AI ${hasApiKey ? 'ONLINE' : 'OFFLINE（APIキー未設定）'}</div>
+</div>
+
+<!-- KPI -->
+<div class="kpis">
+    <div class="kpi">
+        <div class="kpi-l">直近7日 日報数</div>
+        <div class="kpi-v">${weekReports.length}</div>
+        <div class="kpi-s">${weekUniq}名が提出</div>
+        <div class="kpi-bar"><div class="kpi-fill" style="width:${weekRate}%;background:linear-gradient(90deg,#6366f1,#818cf8)"></div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-l">先月 日報数</div>
+        <div class="kpi-v">${monthReports.length}</div>
+        <div class="kpi-s">${monthUniq}名が提出</div>
+        <div class="kpi-bar"><div class="kpi-fill" style="width:${totalEmployees ? Math.round(monthUniq/totalEmployees*100) : 0}%;background:linear-gradient(90deg,#0ea5e9,#38bdf8)"></div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-l">週次 提出率</div>
+        <div class="kpi-v">${weekRate}<span style="font-size:15px">%</span></div>
+        <div class="kpi-s">全${totalEmployees}名中 ${weekUniq}名</div>
+        <div class="kpi-bar"><div class="kpi-fill" style="width:${weekRate}%;background:linear-gradient(90deg,#10b981,#34d399)"></div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-l">未提出（今週）</div>
+        <div class="kpi-v" style="color:${(totalEmployees-weekUniq)>0?'#dc2626':'#10b981'}">${totalEmployees - weekUniq}</div>
+        <div class="kpi-s">名がまだ未提出</div>
+        <div class="kpi-bar"><div class="kpi-fill" style="width:${totalEmployees ? Math.round((totalEmployees-weekUniq)/totalEmployees*100) : 0}%;background:linear-gradient(90deg,#f43f5e,#fb7185)"></div></div>
+    </div>
+</div>
+
+<!-- ──── AI要約（ストリーミング）パネル ──── -->
+<div class="panel">
+    <div class="ph">
+        <div class="pt">✨ リアルタイム AI要約生成</div>
+        <span id="metaInfo" style="font-size:12px;color:#64748b"></span>
+    </div>
+    <div class="pb">
+        <!-- 期間 & スタイル -->
+        <div class="row2">
+            <div class="seg" id="periodSeg">
+                <button class="seg-btn on" onclick="setPeriod('weekly',this)">📅 週次（直近7日）</button>
+                <button class="seg-btn" onclick="setPeriod('monthly',this)">🗓 月次（先月）</button>
+            </div>
+            <div class="seg" id="styleSeg">
+                <button class="seg-btn on" onclick="setStyle('management',this)">🎯 管理向け</button>
+                <button class="seg-btn" onclick="setStyle('detailed',this)">🔍 詳細分析</button>
+                <button class="seg-btn" onclick="setStyle('bullet',this)">📋 箇条書き</button>
+                <button class="seg-btn" onclick="setStyle('action',this)">🚀 アクション</button>
+            </div>
+        </div>
+
+        <!-- クイック質問チップ -->
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">クイック分析</div>
+        <div class="chips">
+            <span class="chip" onclick="quickAsk(this,'一番頑張っている社員・チームを教えて')">🏆 頑張っている社員</span>
+            <span class="chip" onclick="quickAsk(this,'フォローや面談が必要な社員を洗い出して')">⚠️ フォローが必要な社員</span>
+            <span class="chip" onclick="quickAsk(this,'部門ごとの日報提出状況と傾向をまとめて')">📊 部門別の状況</span>
+            <span class="chip" onclick="quickAsk(this,'今週の良かった点・成功事例を3つ教えて')">💡 良かった点</span>
+            <span class="chip" onclick="quickAsk(this,'課題・問題点・リスクを洗い出して優先度順に並べて')">🔴 課題・問題点</span>
+            <span class="chip" onclick="quickAsk(this,'来週に向けたマネジメントアクションプランを提案して')">📋 来週のアクション</span>
+            <span class="chip" onclick="quickAsk(this,'残業・休日出勤など働き方に関する傾向はある？')">⏰ 働き方の傾向</span>
+            <span class="chip" onclick="quickAsk(this,'日報の内容から社員の感情・モチベーションを分析して')">❤️ モチベーション分析</span>
+        </div>
+
+        <!-- ストリーミング出力ボックス -->
+        <div id="streamBox" class="stream-box empty">✨ 上のボタンを押すか「生成開始」をクリックしてください…</div>
+        <div class="stream-toolbar">
+            <span class="stream-meta" id="streamMeta"></span>
+            <div style="display:flex;gap:7px">
+                <button class="icon-btn" id="copyBtn" onclick="copyStream()" style="display:none">📋 コピー</button>
+                <button class="icon-btn" onclick="clearStream()">🗑 クリア</button>
+            </div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-gen" id="genBtn" onclick="startStream()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                生成開始
+            </button>
+            <button class="btn btn-mail" id="mailBtn" onclick="sendMail()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                管理者へメール送信
+            </button>
+        </div>
+        <div id="toast" class="toast"></div>
+        <div class="no-api">⚠️ <strong>OPENAI_API_KEY</strong> が未設定のため、ルールベースのサマリーになります。AIチャット機能も利用できません。</div>
+    </div>
+</div>
+
+<!-- ──── AIチャット ──── -->
+<div class="panel">
+    <div class="ph">
+        <div class="pt">💬 AIとチャットして深掘り分析</div>
+        <button class="icon-btn" onclick="clearChat()">🗑 履歴クリア</button>
+    </div>
+    <div class="pb">
+        <div class="chips" style="margin-bottom:14px">
+            <span class="chip" onclick="chatAsk('誰が最もモチベーションが高そう？根拠も教えて')">❓ モチベが高い社員</span>
+            <span class="chip" onclick="chatAsk('営業チームと開発チームの違いを比較して')">🔀 チーム比較</span>
+            <span class="chip" onclick="chatAsk('この期間でもっとも多く言及されたキーワードは？')">🔑 頻出キーワード</span>
+            <span class="chip" onclick="chatAsk('日報の質が高い社員と低い社員の差は何？')">📝 日報の質の差</span>
+            <span class="chip" onclick="chatAsk('経営者への週次報告スライド用の要点を3行で')">🖼 経営報告用まとめ</span>
+        </div>
+        <div class="chat-history" id="chatHistory">
+            <div class="chat-empty">AIに日報について質問してみてください。まず「生成開始」でデータを読み込んでからチャットするとより精度が上がります。</div>
+        </div>
+        <div class="chat-input-row">
+            <textarea class="chat-input" id="chatInput" placeholder="日報について自由に質問…（Shift+Enterで改行）" rows="1" onkeydown="chatKeydown(event)"></textarea>
+            <button class="chat-send" id="chatSend" onclick="sendChat()">送信 ↑</button>
+        </div>
+    </div>
+</div>
+
+<!-- ──── 個人別提出状況 ──── -->
+<div class="panel">
+    <div class="ph">
+        <div class="pt">👥 個人別提出状況（今週）</div>
+        <span style="font-size:12px;color:#64748b">${weekReports.length}件</span>
+    </div>
+    <div class="pb">
+        <div class="emp-grid" id="empGrid"><div style="color:#94a3b8;font-size:13px">読み込み中...</div></div>
+    </div>
+</div>
+
+<!-- ──── スケジュール ──── -->
+<div class="panel">
+    <div class="ph"><div class="pt">⏰ 自動送信スケジュール</div></div>
+    <div class="pb">
+        <div class="sch-row">
+            <div>
+                <div class="sch-badge" style="background:#ede9fe;color:#5b21b6">📅 週次</div>
+                <div style="font-size:13px;font-weight:700;margin-top:6px">毎週月曜日 08:00</div>
+            </div>
+            <div style="text-align:right;font-size:12px;color:#64748b">管理者・マネージャー全員<br><span style="font-size:11px;color:#94a3b8">直近7日分を自動集計</span></div>
+        </div>
+        <div class="sch-row">
+            <div>
+                <div class="sch-badge" style="background:#e0f2fe;color:#0369a1">🗓 月次</div>
+                <div style="font-size:13px;font-weight:700;margin-top:6px">毎月1日 08:00</div>
+            </div>
+            <div style="text-align:right;font-size:12px;color:#64748b">管理者・マネージャー全員<br><span style="font-size:11px;color:#94a3b8">先月の全日報を集計</span></div>
+        </div>
+    </div>
+</div>
+
+</div><!-- /.g -->
+
+<script>
+let curPeriod = 'weekly';
+let curStyle  = 'management';
+let fullText  = '';
+let reportContext = ''; // AIチャット用コンテキスト
+let chatMessages  = []; // [{role,content}]
+
+// ── セレクター ──
+function setPeriod(v, btn) {
+    curPeriod = v;
+    btn.closest('.seg').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+}
+function setStyle(v, btn) {
+    curStyle = v;
+    btn.closest('.seg').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+}
+
+// ── クイック分析（ストリーミングに反映）──
+function quickAsk(chip, question) {
+    document.querySelectorAll('.chips .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    startStream(question);
+}
+
+// ── ストリーミング生成 ──
+async function startStream(customQuestion) {
+    const box  = document.getElementById('streamBox');
+    const btn  = document.getElementById('genBtn');
+    const meta = document.getElementById('streamMeta');
+    const copyBtn = document.getElementById('copyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .7s linear infinite"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M3 12A9 9 0 0112 3"/></svg><style>@keyframes spin{to{transform:rotate(360deg)}}</style> 生成中...';
+    box.classList.remove('empty');
+    box.innerHTML = '<span class="cursor"></span>';
+    copyBtn.style.display = 'none';
+    meta.textContent = '';
+    fullText = '';
+    hideToast();
+
+    const params = new URLSearchParams({ period: curPeriod, style: curStyle });
+    if (customQuestion) params.set('question', customQuestion);
+
+    try {
+        const resp = await fetch('/hr/daily-report/api/stream?' + params.toString());
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            box.textContent = '❌ ' + (err.error || 'エラーが発生しました');
+            btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> 生成開始';
+            return;
+        }
+
+        const reader = resp.body.getReader();
+        const dec    = new TextDecoder();
+        let   buf    = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\\n');
+            buf = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const raw = line.slice(5).trim();
+                if (raw === '[DONE]') continue;
+                try {
+                    const d = JSON.parse(raw);
+                    if (d.text) {
+                        fullText += d.text;
+                        box.innerHTML = escHtml(fullText) + '<span class="cursor"></span>';
+                        box.scrollTop = box.scrollHeight;
+                    }
+                    if (d.meta) meta.textContent = d.meta;
+                    if (d.reportContext) {
+                        reportContext = d.reportContext;
+                    }
+                } catch(e) { /* ignore */ }
+            }
+        }
+
+        // 完了
+        box.innerHTML = escHtml(fullText);
+        copyBtn.style.display = '';
+        if (fullText) {
+            // チャットのシステムコンテキストを更新
+            chatMessages = [];
+        }
+    } catch(e) {
+        box.textContent = '❌ ' + e.message;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> 生成開始';
+}
+
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearStream() {
+    const box = document.getElementById('streamBox');
+    box.classList.add('empty');
+    box.innerHTML = '✨ 上のボタンを押すか「生成開始」をクリックしてください…';
+    document.getElementById('copyBtn').style.display = 'none';
+    document.getElementById('streamMeta').textContent = '';
+    fullText = '';
+    document.querySelectorAll('.chips .chip').forEach(c => c.classList.remove('active'));
+}
+
+function copyStream() {
+    if (!fullText) return;
+    navigator.clipboard.writeText(fullText).then(() => {
+        const b = document.getElementById('copyBtn');
+        b.textContent = '✅ コピー済み';
+        setTimeout(() => { b.textContent = '📋 コピー'; }, 2000);
+    });
+}
+
+// ── メール送信 ──
+async function sendMail() {
+    if (!confirm('管理者・マネージャー全員にAI要約をメール送信しますか？')) return;
+    const btn = document.getElementById('mailBtn');
+    btn.disabled = true; btn.textContent = '⏳ 送信中...';
+    hideToast();
+    try {
+        const r = await fetch('/hr/daily-report/api/summarize', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ period: curPeriod, sendEmail: true })
+        });
+        const d = await r.json();
+        showToast(d.ok ? '✅ ' + d.message : '❌ ' + (d.error || 'エラー'), d.ok);
+    } catch(e) { showToast('❌ ' + e.message, false); }
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> 管理者へメール送信';
+}
+
+// ── トースト ──
+function showToast(msg, ok) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast ' + (ok ? 'ok' : 'err');
+    t.style.display = 'block';
+    if (ok) setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+function hideToast() { document.getElementById('toast').style.display = 'none'; }
+
+// ── チャット ──
+function chatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function chatAsk(q) {
+    document.getElementById('chatInput').value = q;
+    sendChat();
+}
+
+async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    const hist = document.getElementById('chatHistory');
+    const sendBtn = document.getElementById('chatSend');
+    sendBtn.disabled = true;
+
+    // 空メッセージを消す
+    const empty = hist.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    // ユーザーメッセージ表示
+    chatMessages.push({ role: 'user', content: q });
+    hist.insertAdjacentHTML('beforeend', \`
+        <div class="msg user">
+            <div class="msg-avatar">👤</div>
+            <div class="msg-bubble">\${escHtml(q)}</div>
+        </div>\`);
+    hist.scrollTop = hist.scrollHeight;
+
+    // AIメッセージプレースホルダー
+    const aiId = 'ai-' + Date.now();
+    hist.insertAdjacentHTML('beforeend', \`
+        <div class="msg ai" id="\${aiId}">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-bubble streaming" id="\${aiId}-bubble">…</div>
+        </div>\`);
+    hist.scrollTop = hist.scrollHeight;
+
+    try {
+        const resp = await fetch('/hr/daily-report/api/chat', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                period: curPeriod,
+                messages: chatMessages,
+                reportContext: reportContext
+            })
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            document.getElementById(aiId + '-bubble').textContent = '❌ ' + (err.error || 'エラー');
+            document.getElementById(aiId + '-bubble').classList.remove('streaming');
+            sendBtn.disabled = false; return;
+        }
+
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        let aiText = '';
+        const bubble = document.getElementById(aiId + '-bubble');
+        bubble.textContent = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\\n');
+            buf = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const raw = line.slice(5).trim();
+                if (raw === '[DONE]') continue;
+                try {
+                    const d = JSON.parse(raw);
+                    if (d.text) {
+                        aiText += d.text;
+                        bubble.textContent = aiText;
+                        hist.scrollTop = hist.scrollHeight;
+                    }
+                } catch(e) {}
+            }
+        }
+        bubble.classList.remove('streaming');
+        chatMessages.push({ role: 'assistant', content: aiText });
+    } catch(e) {
+        document.getElementById(aiId + '-bubble').textContent = '❌ ' + e.message;
+        document.getElementById(aiId + '-bubble').classList.remove('streaming');
+    }
+    sendBtn.disabled = false;
+    hist.scrollTop = hist.scrollHeight;
+}
+
+function clearChat() {
+    chatMessages = [];
+    const h = document.getElementById('chatHistory');
+    h.innerHTML = '<div class="chat-empty">AIに日報について質問してみてください。まず「生成開始」でデータを読み込んでからチャットするとより精度が上がります。</div>';
+}
+
+// ── 個人別カード ──
+function renderEmpGrid(employees) {
+    const grid = document.getElementById('empGrid');
+    if (!employees || employees.length === 0) {
+        grid.innerHTML = '<div style="color:#94a3b8;font-size:13px">対象期間に日報がありません</div>';
+        return;
+    }
+    const colors = ['#6366f1','#8b5cf6','#ec4899','#0ea5e9','#10b981','#f59e0b','#ef4444'];
+    grid.innerHTML = employees.map(e => {
+        const col = colors[(e.name||'').charCodeAt(0) % colors.length];
+        return \`<div class="emp-card">
+            <div class="emp-head">
+                <div class="emp-av" style="background:\${col}">\${(e.name||'?').charAt(0)}</div>
+                <div><div class="emp-name">\${e.name||'不明'}</div><div class="emp-dept">\${e.department||''}</div></div>
+            </div>
+            <div class="emp-tags">
+                <span class="tag">\${e.count}件</span>
+                \${e.lastDate ? '<span class="tag" style="background:#e0f2fe;color:#0369a1">最終: '+e.lastDate+'</span>' : ''}
+            </div>
+            <div class="emp-ex">\${(e.excerpt||'').replace(/</g,'&lt;')||'（内容なし）'}</div>
+        </div>\`;
+    }).join('');
+}
+
+(async () => {
+    try {
+        const r = await fetch('/hr/daily-report/api/employees-weekly');
+        const d = await r.json();
+        if (d.employees) renderEmpGrid(d.employees);
+        else document.getElementById('empGrid').innerHTML = '<div style="color:#94a3b8;font-size:13px">データなし</div>';
+    } catch(e) {
+        document.getElementById('empGrid').innerHTML = '<div style="color:#94a3b8;font-size:13px">読み込みエラー</div>';
+    }
+})();
+</script>`;
+
+    res.send(buildPageShell({ title: '日報AI要約センター', currentPath: '/hr/daily-report/summary', employee, isAdmin: true }) + content + pageFooter());
+});
+
+// ── 個人別週次データ ──
+router.get('/hr/daily-report/api/employees-weekly', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ error: '管理者のみ' });
+    try {
+        const momentTz = require('moment-timezone');
+        const now = momentTz().tz('Asia/Tokyo');
+        const from = now.clone().subtract(7, 'days').startOf('day').toDate();
+        const reports = await DailyReport.find({ reportDate: { $gte: from } }).lean();
+        const employees = await Employee.find().lean();
+        const empMap = Object.fromEntries(employees.map(e => [e.userId?.toString(), e]));
+        const byEmp = {};
+        for (const r of reports) {
+            const uid = r.userId?.toString() || 'unknown';
+            if (!byEmp[uid]) byEmp[uid] = { reports: [], emp: empMap[uid] || {} };
+            byEmp[uid].reports.push(r);
+        }
+        const result = Object.values(byEmp).map(({ reports: rpts, emp }) => {
+            const sorted = rpts.sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
+            return { name: emp.name||'不明', department: emp.department||'', count: rpts.length,
+                lastDate: sorted[0] ? momentTz(sorted[0].reportDate).format('M/D') : null,
+                excerpt: (sorted[0]?.content||'').slice(0, 80) };
+        }).sort((a, b) => b.count - a.count);
+        res.json({ employees: result });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── SSEストリーミング要約 ──
+router.get('/hr/daily-report/api/stream', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ error: '管理者のみ' });
+
+    const { period = 'weekly', style = 'management', question } = req.query;
+    const momentTz = require('moment-timezone');
+    const now = momentTz().tz('Asia/Tokyo');
+    let from, to, periodLabel;
+    if (period === 'monthly') {
+        from = now.clone().subtract(1, 'month').startOf('month').toDate();
+        to   = now.clone().subtract(1, 'month').endOf('month').toDate();
+        periodLabel = now.clone().subtract(1, 'month').format('YYYY年M月') + '月次';
+    } else {
+        from = now.clone().subtract(7, 'days').startOf('day').toDate();
+        to   = now.clone().endOf('day').toDate();
+        periodLabel = now.clone().subtract(7, 'days').format('M/D') + '〜' + now.format('M/D') + ' 週次';
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const send = (obj) => { res.write('data: ' + JSON.stringify(obj) + '\n\n'); };
+
+    try {
+        const reports = await DailyReport.find({ reportDate: { $gte: from, $lte: to } }).lean();
+        const employees = await Employee.find().lean();
+        const empMap = Object.fromEntries(employees.map(e => [e.userId?.toString(), e]));
+        for (const r of reports) r._emp = empMap[r.userId?.toString()] || {};
+
+        const count = reports.length;
+        const empSet = new Set(reports.map(r => r.userId?.toString()));
+        send({ meta: `${count}件の日報を分析中 · ${empSet.size}名` });
+
+        // コンテキスト文字列（チャット用）
+        const contextTexts = reports.map(r =>
+            `【${r._emp.name||'不明'} / ${r._emp.department||''} / ${momentTz(r.reportDate).format('M/D')}】\n${r.content||''}`
+        ).join('\n\n---\n\n');
+        send({ reportContext: contextTexts.slice(0, 12000) });
+
+        if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+            // ルールベースフォールバック（ストリーミング風に送信）
+            const lines = [
+                `【${periodLabel} 日報サマリー】（AIキー未設定 / ルールベース）`,
+                ``,
+                `対象: ${count}件 / ${empSet.size}名`,
+                ``,
+                `■ 提出状況`,
+                ...employees.filter(e => empSet.has(e.userId?.toString())).slice(0, 10).map(e => `  • ${e.name}（${e.department||''}）`),
+                ``,
+                `■ 最新日報（抜粋）`,
+                ...reports.slice(0, 5).map(r => `  • ${r._emp.name||'不明'} (${momentTz(r.reportDate).format('M/D')}): ${(r.content||'').slice(0,80)}…`),
+                ``,
+                `※ OPENAI_API_KEY を設定すると GPT-4o によるリアルタイム分析が利用できます。`
+            ];
+            for (const line of lines) {
+                send({ text: line + '\n' });
+                await new Promise(r => setTimeout(r, 30));
+            }
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        }
+
+        const { default: OpenAI } = require('openai');
+        const ai = new OpenAI({
+            apiKey:  process.env.OPENAI_API_KEY,
+            baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+            defaultHeaders: process.env.OPENAI_BASE_URL ? {
+                'HTTP-Referer': 'https://dxpro-sol.com',
+                'X-Title': 'DXPro Attendance AI',
+            } : {},
+        });
+        const AI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+        const styleInstructions = {
+            management: `マネジメント向けのエグゼクティブサマリー形式で。全体状況・ハイライト・注意点・推奨アクションの4セクション構成。`,
+            detailed:   `詳細な分析レポート形式で。各社員・部門の状況を具体的数字と事実ベースで。`,
+            bullet:     `箇条書き形式（• 記号使用）で。重要ポイントを端的に20項目以内で列挙。`,
+            action:     `アクション重視形式。今すぐやること・今週中にやること・来週の準備に分けて、具体的な行動指針を提示。`
+        };
+
+        const baseInstruction = styleInstructions[style] || styleInstructions.management;
+        const userInstruction = question
+            ? `【質問】${question}\n上記の質問に対して、日報データをもとに具体的に答えてください。`
+            : `${baseInstruction}\n以下の${periodLabel}日報データ（${count}件 / ${empSet.size}名）を分析してサマリーを作成してください。`;
+
+        const systemPrompt = `あなたは優秀な人事アナリスト・マネージャーです。日本語で丁寧かつ実用的なレポートを作成します。絵文字を適度に使い読みやすくしてください。`;
+
+        const stream = await ai.chat.completions.create({
+            model: AI_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user',   content: userInstruction + '\n\n日報データ:\n' + contextTexts.slice(0, 10000) }
+            ],
+            max_tokens: 1200, temperature: 0.7, stream: true
+        });
+
+        for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content || '';
+            if (text) send({ text });
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch(e) {
+        console.error('[Stream API]', e.message);
+        send({ text: '\n❌ エラー: ' + e.message });
+        res.write('data: [DONE]\n\n');
+        res.end();
+    }
+});
+
+// ── AIチャット（ストリーミング） ──
+router.post('/hr/daily-report/api/chat', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ error: '管理者のみ' });
+
+    const { messages = [], reportContext = '', period = 'weekly' } = req.body;
+    if (!messages.length) return res.status(400).json({ error: 'messages は必須です' });
+
+    const hasKey = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here');
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const send = (obj) => { res.write('data: ' + JSON.stringify(obj) + '\n\n'); };
+
+    try {
+        const momentTz = require('moment-timezone');
+
+        // コンテキストが空なら直近データを取得
+        let ctx = reportContext;
+        if (!ctx) {
+            const now = momentTz().tz('Asia/Tokyo');
+            const from = period === 'monthly'
+                ? now.clone().subtract(1, 'month').startOf('month').toDate()
+                : now.clone().subtract(7, 'days').startOf('day').toDate();
+            const reports = await DailyReport.find({ reportDate: { $gte: from } }).lean();
+            const emps = await Employee.find().lean();
+            const empMap = Object.fromEntries(emps.map(e => [e.userId?.toString(), e]));
+            ctx = reports.map(r => {
+                const emp = empMap[r.userId?.toString()] || {};
+                return `【${emp.name||'不明'} / ${emp.department||''} / ${momentTz(r.reportDate).format('M/D')}】\n${r.content||''}`;
+            }).join('\n\n---\n\n').slice(0, 10000);
+        }
+
+        // APIキー未設定の場合はルールベースで回答
+        if (!hasKey) {
+            const question = messages[messages.length - 1]?.content || '';
+            const lines = ctx.split('\n').filter(l => l.trim());
+            const nameMatches = [...new Set(lines.filter(l => l.startsWith('【')).map(l => l.match(/【(.+?) \//)?.[1]).filter(Boolean))];
+
+            const reply = [
+                `⚠️ OPENAI_API_KEY が未設定のため、ルールベースで回答します。`,
+                ``,
+                `【質問】${question}`,
+                ``,
+                `【利用可能なデータ】`,
+                `日報提出者: ${nameMatches.slice(0, 10).join('、') || 'データなし'}`,
+                `総データ数: ${lines.filter(l => l.startsWith('【')).length} 件`,
+                ``,
+                `より詳細なAI分析を行うには、サーバーに OPENAI_API_KEY を設定してください。`,
+                `設定後はリアルタイムでチャット形式の分析が可能になります。`,
+            ].join('\n');
+
+            for (const char of reply) {
+                send({ text: char });
+                await new Promise(r => setTimeout(r, 8));
+            }
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        }
+
+        const { default: OpenAI } = require('openai');
+        const ai = new OpenAI({
+            apiKey:  process.env.OPENAI_API_KEY,
+            baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+            defaultHeaders: process.env.OPENAI_BASE_URL ? {
+                'HTTP-Referer': 'https://dxpro-sol.com',
+                'X-Title': 'DXPro Attendance AI',
+            } : {},
+        });
+        const AI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+        const systemMsg = {
+            role: 'system',
+            content: `あなたは企業の人事アナリストです。以下の日報データをもとにユーザーの質問に答えてください。日本語で回答し、具体的・実用的な内容にしてください。絵文字を適度に使い読みやすくしてください。\n\n【日報データ】\n${ctx}`
+        };
+
+        const stream = await ai.chat.completions.create({
+            model: AI_MODEL,
+            messages: [systemMsg, ...messages.slice(-12)],
+            max_tokens: 800, temperature: 0.7, stream: true
+        });
+
+        for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content || '';
+            if (text) send({ text });
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch(e) {
+        console.error('[Chat API]', e.message);
+        send({ text: '❌ ' + e.message });
+        res.write('data: [DONE]\n\n');
+        res.end();
+    }
+});
+
+// ── メール送信専用API ──
+router.post('/hr/daily-report/api/summarize', requireLogin, async (req, res) => {
+    if (!req.session.isAdmin) return res.status(403).json({ error: '管理者のみ' });
+    try {
+        const { period = 'weekly', sendEmail: doSend = false } = req.body;
+        const momentTz = require('moment-timezone');
+        const { User } = require('../models');
+        const now = momentTz().tz('Asia/Tokyo');
+        let from, to, periodLabel;
+        if (period === 'monthly') {
+            from = now.clone().subtract(1, 'month').startOf('month').toDate();
+            to   = now.clone().subtract(1, 'month').endOf('month').toDate();
+            periodLabel = now.clone().subtract(1, 'month').format('YYYY年M月') + ' 月次';
+        } else {
+            from = now.clone().subtract(7, 'days').startOf('day').toDate();
+            to   = now.clone().endOf('day').toDate();
+            periodLabel = now.clone().subtract(7, 'days').format('M/D') + '〜' + now.format('M/D') + ' 週次';
+        }
+        const reports = await DailyReport.find({ reportDate: { $gte: from, $lte: to } }).lean();
+        const employees = await Employee.find().lean();
+        const empMap = Object.fromEntries(employees.map(e => [e.userId?.toString(), e]));
+        for (const r of reports) r._emp = empMap[r.userId?.toString()] || {};
+        if (reports.length === 0) return res.json({ summary: '対象期間に日報がありません。', count: 0, employeeCount: 0 });
+
+        if (doSend) {
+            const { sendSummary: _send } = require('../lib/dailyReportSummary');
+            const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).lean();
+            const emails = admins.map(u => u.email).filter(Boolean);
+            await _send(period, emails);
+            return res.json({ ok: true, message: `${periodLabel}サマリーを ${emails.length}名に送信しました`, count: reports.length });
+        }
+
+        res.json({ ok: false, message: '要約生成はストリーミングAPIを使用してください', count: reports.length });
+    } catch (e) {
+        console.error('[Summarize API]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // 日報詳細・コメント
 router.get("/hr/daily-report/:id", requireLogin, async (req, res) => {
   try {
@@ -4472,6 +5157,16 @@ router.get("/hr/daily-report/:id", requireLogin, async (req, res) => {
                         </button>`,
                     ).join("");
 
+                    // 編集フォーム用：既存添付ファイルの削除ボタン付きリスト
+                    const ceditAttHtml = (c.attachments || []).map(a => {
+                      const icon = (a.mimetype||'').startsWith('image/') ? '🖼️'
+                        : (a.originalName||'').toLowerCase().endsWith('.pdf') ? '📄' : '📎';
+                      return `<div class="cedit-att-item" id="catt-${a._id}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f1f5f9;border-radius:8px;font-size:12px;color:#374151;border:1px solid #e2e8f0">`
+                        + `${icon} ${escapeHtml(a.originalName||a.filename)}`
+                        + `<button type="button" onclick="removeCEditAttachment('${cid}','${a._id}',this)" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:0 2px" title="削除">×</button>`
+                        + `</div>`;
+                    }).join('');
+
                     return `<div class="comment-item" id="ci-${cid}">
                         <div class="comment-avatar">${escapeHtml(initial)}</div>
                         <div style="flex:1;min-width:0">
@@ -4480,7 +5175,7 @@ router.get("/hr/daily-report/:id", requireLogin, async (req, res) => {
                                 ${c.editedAt ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px">（編集済み）</span>` : ""}
                             </div>
                             <div class="comment-body" id="cbody-${cid}">${nl2br(c.text || "")}</div>
-                            ${makeAttachHtml(c.attachments)}
+                            <div id="cattach-${cid}">${makeAttachHtml(c.attachments)}</div>
                             ${
                               canEdit
                                 ? `<div class="comment-actions">
@@ -4494,6 +5189,15 @@ router.get("/hr/daily-report/:id", requireLogin, async (req, res) => {
                             }
                             <div class="comment-edit-form" id="cedit-${cid}">
                                 <textarea id="cedit-text-${cid}" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #3b82f6;border-radius:9px;font-size:13.5px;resize:vertical;box-sizing:border-box;font-family:inherit;line-height:1.6;outline:none">${escapeHtml(c.text || "")}</textarea>
+                                ${ceditAttHtml ? `<div id="cedit-att-list-${cid}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${ceditAttHtml}</div>` : `<div id="cedit-att-list-${cid}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>`}
+                                <input type="hidden" id="cedit-remove-${cid}" value="">
+                                <div style="margin-top:8px">
+                                    <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#64748b;cursor:pointer">
+                                        📎 ファイルを追加
+                                        <input type="file" id="cedit-files-${cid}" multiple style="display:none" onchange="handleCEditFiles('${cid}',this)">
+                                    </label>
+                                    <div id="cedit-newfiles-${cid}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+                                </div>
                                 <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">
                                     <button type="button" class="c-action-btn" onclick="cancelEditComment('${cid}')">キャンセル</button>
                                     <button type="button" class="c-action-btn edit" onclick="submitEditComment('${cid}','${report._id}')">💾 保存</button>
@@ -4866,6 +5570,9 @@ function startEditComment(cid) {
     editForm.classList.add('open');
     const bodyEl = document.getElementById('cbody-' + cid);
     if (bodyEl) bodyEl.style.display = 'none';
+    // 既存添付も非表示
+    const attachEl = document.getElementById('cattach-' + cid);
+    if (attachEl) attachEl.style.display = 'none';
     const actionsEl = document.querySelector('#ci-' + cid + ' .comment-actions');
     if (actionsEl) actionsEl.style.display = 'none';
 }
@@ -4875,18 +5582,54 @@ function cancelEditComment(cid) {
     editForm.classList.remove('open');
     const bodyEl = document.getElementById('cbody-' + cid);
     if (bodyEl) bodyEl.style.display = '';
+    const attachEl = document.getElementById('cattach-' + cid);
+    if (attachEl) attachEl.style.display = '';
     const actionsEl = document.querySelector('#ci-' + cid + ' .comment-actions');
     if (actionsEl) actionsEl.style.display = '';
+}
+// 編集フォーム内の既存添付を削除マーク
+function removeCEditAttachment(cid, attId, btn) {
+    // 削除IDリストに追加
+    const removeInput = document.getElementById('cedit-remove-' + cid);
+    if (removeInput) {
+        const cur = removeInput.value ? removeInput.value.split(',') : [];
+        if (!cur.includes(attId)) cur.push(attId);
+        removeInput.value = cur.join(',');
+    }
+    // 該当アイテムを即座に削除（DOM から除去）
+    const item = document.getElementById('catt-' + attId);
+    if (item) item.remove();
+}
+// 編集フォームへの新規ファイル追加プレビュー（ファイル名＋サイズを表示）
+function handleCEditFiles(cid, input) {
+    const container = document.getElementById('cedit-newfiles-' + cid);
+    if (!container) return;
+    container.innerHTML = '';
+    Array.from(input.files).forEach(f => {
+        const icon = f.type.startsWith('image/') ? '🖼️' : f.name.endsWith('.pdf') ? '📄' : '📎';
+        const size = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : Math.round(f.size/1024)+'KB';
+        const el = document.createElement('div');
+        el.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#374151;border:1px solid #bfdbfe';
+        el.textContent = icon + ' ' + f.name + ' (' + size + ')';
+        container.appendChild(el);
+    });
 }
 function submitEditComment(cid, reportId) {
     const ta = document.getElementById('cedit-text-' + cid);
     if (!ta) return;
     const text = ta.value.trim();
     if (!text) return;
+    const removeInput = document.getElementById('cedit-remove-' + cid);
+    const filesInput = document.getElementById('cedit-files-' + cid);
+    const fd = new FormData();
+    fd.append('text', text);
+    if (removeInput && removeInput.value) fd.append('removeAttachmentIds', removeInput.value);
+    if (filesInput && filesInput.files.length) {
+        Array.from(filesInput.files).forEach(f => fd.append('commentFiles', f));
+    }
     fetch('/hr/daily-report/' + reportId + '/comment/' + cid + '/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: fd
     })
     .then(r => r.json())
     .then(d => {
@@ -4895,6 +5638,23 @@ function submitEditComment(cid, reportId) {
         if (bodyEl) {
             bodyEl.innerHTML = d.html || d.text.split('\\n').join('<br>');
             bodyEl.style.display = '';
+        }
+        // 添付ファイル表示を更新
+        const attachEl = document.getElementById('cattach-' + cid);
+        if (attachEl) {
+            attachEl.innerHTML = d.attachHtml || '';
+            attachEl.style.display = '';
+        }
+        // 編集フォームの添付リストを保存後の状態に再構築（次回編集時に正しく表示するため）
+        const attListEl = document.getElementById('cedit-att-list-' + cid);
+        if (attListEl) {
+            attListEl.innerHTML = (d.attachments || []).map(a => {
+                const icon = (a.mimetype || '').startsWith('image/') ? '🖼️' : (a.originalName || '').toLowerCase().endsWith('.pdf') ? '📄' : '📎';
+                return '<div class="cedit-att-item" id="catt-' + a._id + '" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f1f5f9;border-radius:8px;font-size:12px;color:#374151;border:1px solid #e2e8f0">'
+                    + icon + ' ' + a.originalName
+                    + '<button type="button" onclick="removeCEditAttachment(\\'' + cid + '\\',\\'' + a._id + '\\',this)" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:0 2px" title="削除">×</button>'
+                    + '</div>';
+            }).join('');
         }
         // 「編集済み」バッジを追加
         const metaEl = document.querySelector('#ci-' + cid + ' .comment-meta');
@@ -4909,6 +5669,11 @@ function submitEditComment(cid, reportId) {
         if (actionsEl) actionsEl.style.display = '';
         const editForm = document.getElementById('cedit-' + cid);
         if (editForm) editForm.classList.remove('open');
+        // 編集フォームのファイル入力・新規ファイルプレビューをリセット
+        if (removeInput) removeInput.value = '';
+        if (filesInput) filesInput.value = '';
+        const newFilesEl = document.getElementById('cedit-newfiles-' + cid);
+        if (newFilesEl) newFilesEl.innerHTML = '';
     })
     .catch(() => alert('通信エラーが発生しました'));
 }
@@ -5130,9 +5895,10 @@ router.post(
 router.post(
   "/hr/daily-report/:reportId/comment/:commentId/edit",
   requireLogin,
+  upload.array("commentFiles"),
   async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, removeAttachmentIds } = req.body;
       if (!text || !text.trim())
         return res.json({ ok: false, error: "テキストが空です" });
 
@@ -5153,6 +5919,14 @@ router.post(
 
       comment.text = text.trim();
       comment.editedAt = new Date();
+
+      // 添付ファイルの更新（削除＋新規追加）
+      comment.attachments = buildAttachmentsAfterEdit(
+        comment.attachments,
+        removeAttachmentIds,
+        req.files,
+      );
+
       await report.save();
 
       const { escapeHtml: esc } = require("../lib/helpers");
@@ -5162,7 +5936,27 @@ router.post(
           '<span style="color:#2563eb;font-weight:700;background:#eff6ff;border-radius:4px;padding:0 3px">@$1</span>',
         )
         .replace(/\n/g, "<br>");
-      res.json({ ok: true, text: comment.text, html });
+
+      // 添付ファイル表示HTMLを生成してフロントエンドへ返す
+      const updatedComment = report.comments.id(req.params.commentId);
+      const atts = updatedComment ? updatedComment.attachments || [] : [];
+      let attachHtml = '';
+      if (atts.length) {
+        attachHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'
+          + atts.map(a => {
+              const isImage = (a.mimetype || '').startsWith('image/');
+              const url = '/uploads/daily/' + a.filename;
+              if (isImage) {
+                return `<a href="${url}" target="_blank" style="display:block"><img src="${url}" alt="${esc(a.originalName || a.filename)}" style="max-width:160px;max-height:120px;border-radius:8px;border:1px solid #e2e8f0;object-fit:cover"></a>`;
+              }
+              const icon = (a.originalName || '').endsWith('.pdf') ? '📄' : '📎';
+              const size = a.size > 1024*1024 ? (a.size/1024/1024).toFixed(1)+'MB' : Math.round((a.size||0)/1024)+'KB';
+              return `<a href="${url}" target="_blank" download="${esc(a.originalName || a.filename)}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#f1f5f9;border-radius:8px;font-size:13px;color:#374151;text-decoration:none;border:1px solid #e2e8f0">${icon} ${esc(a.originalName || a.filename)} <span style="color:#9ca3af;font-size:11px">${size}</span></a>`;
+            }).join('')
+          + '</div>';
+      }
+
+      res.json({ ok: true, text: comment.text, html, attachHtml, attachments: atts.map(a => ({ _id: String(a._id), originalName: a.originalName || a.filename, filename: a.filename, mimetype: a.mimetype || '', size: a.size || 0 })) });
     } catch (e) {
       console.error(e);
       res.json({ ok: false, error: "サーバーエラー" });
@@ -5200,4 +5994,24 @@ router.post(
   },
 );
 
+// ─────────────────────────────────────────────────────────────
+// 給与明細「確認しました」ボタン（Issue #20）
+// ─────────────────────────────────────────────────────────────
+router.post('/hr/payroll/:id/confirm', requireLogin, async (req, res) => {
+    try {
+        const employee = await Employee.findOne({ userId: req.session.userId });
+        const slip = await PayrollSlip.findById(req.params.id);
+        if (!slip || String(slip.employeeId) !== String(employee._id)) {
+            return res.status(403).json({ error: '権限がありません' });
+        }
+        slip.confirmedAt = new Date();
+        slip.confirmedBy = req.session.userId;
+        await slip.save();
+        res.json({ ok: true, confirmedAt: slip.confirmedAt });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;
+
