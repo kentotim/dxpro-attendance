@@ -21,11 +21,14 @@
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "html-pdf": "^3.0.1",
+    "i18next": "^26.0.6",
+    "i18next-fs-backend": "^2.6.4",
     "moment-timezone": "^0.5.48",
     "mongoose": "^8.14.2",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.3",
+    "openai": "^6.34.0",
     "twilio": "^5.7.1"
   }
 }

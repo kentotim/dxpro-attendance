@@ -5,6 +5,9 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     isAdmin: { type: Boolean, default: false },
+    // Issue #19: 中間ロール拡張
+    // 'admin' | 'manager' | 'team_leader' | 'employee'
+    role: { type: String, enum: ['admin', 'manager', 'team_leader', 'employee', 'test_user'], default: 'employee' },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -23,7 +26,8 @@ const AttendanceSchema = new mongoose.Schema({
     isConfirmed: { type: Boolean, default: false },
     confirmedAt: { type: Date },
     confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    notes: { type: String }
+    notes: { type: String },
+    isGpsVerified: { type: Boolean, default: false }  // GPS認証による打刻か否か
 });
 
 // 掲示板投稿スキーマ
@@ -92,7 +96,31 @@ const PayrollSettingSchema = new mongoose.Schema({
     defaultDeductions: [{ name: String, amount: Number }],
 });
 
-// 給与処理スキーマ
+// ─── Issue #20: 社員別給与マスタ ────────────────────────────────────────────
+const PayrollMasterSchema = new mongoose.Schema({
+    employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true, unique: true },
+    baseSalary:        { type: Number, default: 0 },    // 基本給（月額）
+    // 手当
+    positionAllowance: { type: Number, default: 0 },    // 役職手当
+    housingAllowance:  { type: Number, default: 0 },    // 住宅手当
+    familyAllowance:   { type: Number, default: 0 },    // 家族手当
+    commuteAllowance:  { type: Number, default: 0 },    // 通勤手当（非課税）
+    otherAllowances:   [{ name: String, amount: { type: Number, default: 0 } }],
+    // 控除（固定）
+    healthInsurance:   { type: Number, default: 0 },    // 健康保険料（手動設定 or 自動）
+    nursingInsurance:  { type: Number, default: 0 },    // 介護保険料
+    pensionInsurance:  { type: Number, default: 0 },    // 厚生年金保険料
+    employmentInsurance:{ type: Number, default: 0 },   // 雇用保険料
+    // 計算フラグ
+    autoCalcInsurance: { type: Boolean, default: true }, // 保険料自動計算
+    dependents:        { type: Number, default: 0 },    // 扶養人数（所得税計算用）
+    // 残業単価設定（自動計算 or 手動）
+    hourlyRate:        { type: Number, default: 0 },    // 時間単価（0=基本給から自動計算）
+    workingDaysPerMonth: { type: Number, default: 20 }, // 月の所定労働日数
+    workingHoursPerDay:  { type: Number, default: 8 },  // 1日の所定労働時間
+    updatedAt: { type: Date, default: Date.now }
+});
+
 const PayrollRunSchema = new mongoose.Schema({
     periodFrom: Date,
     periodTo: Date,
@@ -133,6 +161,8 @@ const PayrollSlipSchema = new mongoose.Schema({
     net: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'issued', 'locked', 'paid'], default: 'draft' },
     notes: String,
+    confirmedAt: { type: Date },      // 社員が「確認した」を押した日時
+    confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 // 承認リクエストスキーマ
@@ -228,6 +258,16 @@ const PretestSubmissionSchema = new mongoose.Schema({
     endedAt: { type: Date },
     durationSeconds: { type: Number },
     createdAt: { type: Date, default: Date.now }
+});
+
+// 入社前テスト合否設定スキーマ
+const PretestConfigSchema = new mongoose.Schema({
+    passScore:       { type: Number, default: 60 },   // 合格ライン（点数）
+    passPercent:     { type: Number, default: 60 },   // 合格ライン（%）
+    usePercent:      { type: Boolean, default: true }, // true=% で判定、false=点数で判定
+    notifyEmails:    [{ type: String }],               // 採用担当メールアドレス
+    autoSendReport:  { type: Boolean, default: true }, // 自動メール送信ON/OFF
+    updatedAt:       { type: Date, default: Date.now }
 });
 
 // 休暇残日数スキーマ
@@ -372,17 +412,36 @@ const EmployeeSchema = new mongoose.Schema({
     position: { type: String, required: true },
     joinDate: { type: Date, required: true },
     contact: { type: String },
-    email: { type: String }
+    email: { type: String },
+    // Issue #19: 組織拡張フィールド
+    departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' }, // 部署参照
+    orgRole: { type: String, enum: ['admin', 'manager', 'team_leader', 'employee'], default: 'employee' },
+    reportsTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },  // 上司
+    concurrentDepts: [{ type: String }]  // 兼務部署名リスト
 });
 
 // モデル export
 const User            = mongoose.model('User', UserSchema);
+// GPS承認済み場所スキーマ
+const ApprovedLocationSchema = new mongoose.Schema({
+    name:      { type: String, required: true },       // 場所名（例：本社、テレワーク可）
+    latitude:  { type: Number, required: true },       // 緯度
+    longitude: { type: Number, required: true },       // 経度
+    radius:    { type: Number, required: true, default: 200 }, // 許容半径（メートル）
+    isActive:  { type: Boolean, default: true },
+    // 空配列 = 全員OK、IDが入っている場合 = そのユーザーのみ打刻可能
+    allowedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now }
+});
+
 const Attendance      = mongoose.model('Attendance', AttendanceSchema);
 const Employee        = mongoose.model('Employee', EmployeeSchema);
 const BoardPost       = mongoose.model('BoardPost', BoardPostSchema);
 const BoardComment    = mongoose.model('BoardComment', BoardCommentSchema);
 const PayrollSlip     = mongoose.model('PayrollSlip', PayrollSlipSchema);
 const PayrollRun      = mongoose.model('PayrollRun', PayrollRunSchema);
+const PayrollMaster   = mongoose.model('PayrollMaster', PayrollMasterSchema);
 const ApprovalRequest = mongoose.model('ApprovalRequest', ApprovalRequestSchema);
 const Goal            = mongoose.model('Goal', goalSchema);
 const LeaveRequest    = mongoose.model('LeaveRequest', LeaveRequestSchema);
@@ -394,6 +453,52 @@ const DailyReport     = mongoose.model('DailyReport', DailyReportSchema);
 const SkillSheet      = mongoose.model('SkillSheet', SkillSheetSchema);
 const Notification    = mongoose.model('Notification', NotificationSchema);
 const OvertimeRequest = mongoose.model('OvertimeRequest', OvertimeRequestSchema);
+const ApprovedLocation = mongoose.model('ApprovedLocation', ApprovedLocationSchema);
+const PretestConfig    = mongoose.model('PretestConfig', PretestConfigSchema);
+const PayrollSetting   = mongoose.model('PayrollSetting', PayrollSettingSchema);
+
+// ─── Issue #19: 部署（Department）スキーマ ──────────────────────────────────
+const DepartmentSchema = new mongoose.Schema({
+    name:        { type: String, required: true, unique: true },   // 部署名
+    code:        { type: String, default: '' },                    // 部署コード
+    parentId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null }, // 親部署（階層）
+    managerId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },   // 部門長
+    description: { type: String, default: '' },
+    order:       { type: Number, default: 0 },   // 表示順
+    isActive:    { type: Boolean, default: true },
+    createdAt:   { type: Date, default: Date.now }
+});
+const Department = mongoose.model('Department', DepartmentSchema);
+
+
+const IntegrationConfigSchema = new mongoose.Schema({
+    // 連携サービス識別子: 'slack' | 'line_works' | 'freee' | 'money_forward'
+    service:      { type: String, required: true, unique: true },
+    enabled:      { type: Boolean, default: false },
+    // 暗号化して保存するフィールド（iv:encrypted 形式の文字列）
+    webhookUrl:   { type: String, default: '' },   // Slack / LINE WORKS Webhook URL
+    apiKey:       { type: String, default: '' },   // freee client_secret など
+    clientId:     { type: String, default: '' },   // freee / マネフォ client_id
+    accessToken:  { type: String, default: '' },   // OAuth アクセストークン
+    refreshToken: { type: String, default: '' },   // OAuth リフレッシュトークン
+    // Slack固有
+    channel:      { type: String, default: '' },
+    // LINE WORKS固有
+    botId:        { type: String, default: '' },
+    channelId:    { type: String, default: '' },
+    // マネーフォワード固有
+    companyId:    { type: String, default: '' },
+    // 通知イベント設定
+    notifyEvents: {
+        leaveApproval:    { type: Boolean, default: true },
+        overtimeApproval: { type: Boolean, default: true },
+        attendanceMissing:{ type: Boolean, default: true },
+        dailyReportReminder: { type: Boolean, default: false }
+    },
+    updatedAt:    { type: Date, default: Date.now },
+    updatedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+});
+const IntegrationConfig = mongoose.model('IntegrationConfig', IntegrationConfigSchema);
 
 module.exports = {
     User,
@@ -403,6 +508,7 @@ module.exports = {
     BoardComment,
     PayrollSlip,
     PayrollRun,
+    PayrollMaster,
     ApprovalRequest,
     Goal,
     LeaveRequest,
@@ -413,5 +519,10 @@ module.exports = {
     DailyReport,
     SkillSheet,
     Notification,
-    OvertimeRequest
+    OvertimeRequest,
+    ApprovedLocation,
+    PretestConfig,
+    IntegrationConfig,
+    Department,
+    PayrollSetting
 };

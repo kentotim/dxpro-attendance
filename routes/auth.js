@@ -328,8 +328,11 @@ router.post('/login', async (req, res) => {
         
         // セッションにユーザー情報保存
         req.session.userId = user._id;
-        req.session.isAdmin = user.isAdmin; // isAdmin値もセッションに保存
+        req.session.isAdmin = user.isAdmin;
         req.session.username = user.username;
+        // Issue #19: orgRoleをセッションに保存
+        req.session.orgRole = user.role || (user.isAdmin ? 'admin' : 'employee');
+        req.session.isTestUser = (user.role === 'test_user');
         
         console.log('ログイン成功:', user.username, '管理者:', user.isAdmin);
         return res.redirect('/dashboard');

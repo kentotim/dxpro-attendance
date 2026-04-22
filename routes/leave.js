@@ -9,6 +9,7 @@ const { sendMail } = require('../config/mailer');
 const { renderPage } = require('../lib/renderPage');
 const { escapeHtml } = require('../lib/helpers');
 const { createNotification } = require('./notifications');
+const { notifyEvent } = require('../lib/integrations');
 
 // ── 休暇種別→残日数フィールドのマッピング ──────────
 const leaveTypeToField = { '有給': 'paid', '病欠': 'sick', '慶弔': 'special', 'その他': 'other', '午前休': 'paid', '午後休': 'paid', '早退': 'paid' };
@@ -492,6 +493,10 @@ router.post('/admin/approve-leave/:id', requireLogin, isAdmin, async (req, res) 
                 link: '/leave',
             });
         }
+        // Slack / LINE WORKS 通知
+        notifyEvent('leaveApproval',
+            `✅ 休暇申請が承認されました\n社員: ${employee ? employee.name : '不明'}\n種別: ${request.leaveType}\n期間: ${request.startDate}〜${request.endDate || request.startDate}`
+        ).catch(() => {});
         res.redirect('/admin/leave-requests');
     } catch (error) {
         console.error(error);

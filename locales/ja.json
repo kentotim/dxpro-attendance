@@ -1,0 +1,99 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "attendance": "勤怠管理",
+    "daily_report": "日報管理",
+    "goals": "目標管理",
+    "skillsheet": "スキルシート",
+    "hr": "人事管理",
+    "payroll": "給与明細",
+    "leave_apply": "休暇申請",
+    "leave_history": "休暇履歴",
+    "overtime": "残業申請",
+    "board": "社内掲示板",
+    "rules": "会社規定",
+    "education": "教育コンテンツ",
+    "edu_site": "教育サイト",
+    "edu_test": "テスト実施",
+    "edu_answers": "模範解答",
+    "edu_admin": "テスト一覧（管理者）",
+    "links": "リンク集",
+    "admin_menu": "管理者メニュー",
+    "admin_top": "管理トップ",
+    "admin_payroll": "給与管理",
+    "admin_leave": "休暇承認",
+    "admin_overtime": "残業申請管理",
+    "admin_leave_balance": "有給付与",
+    "admin_add_employee": "社員追加",
+    "admin_users": "ユーザー権限",
+    "change_password": "パスワード変更",
+    "logout": "ログアウト",
+    "main_section": "メイン",
+    "work_section": "勤怠・業務",
+    "hr_section": "人事・給与",
+    "info_section": "情報",
+    "edu_section": "教育"
+  },
+  "topbar": {
+    "admin_badge": "管理者",
+    "notifications": "通知",
+    "mark_all_read": "すべて既読",
+    "see_all": "すべて見る",
+    "loading": "読み込み中..."
+  },
+  "role": {
+    "admin": "管理者",
+    "employee": "社員"
+  },
+  "lang": {
+    "select": "言語",
+    "ja": "日本語",
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "attendance": {
+    "checkin": "出勤",
+    "checkout": "退勤",
+    "gps_checkin": "GPS出勤",
+    "gps_checkout": "GPS退勤",
+    "status": "状態",
+    "working": "勤務中",
+    "off": "未出勤",
+    "date": "日付",
+    "time": "時刻"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "back": "戻る",
+    "submit": "送信",
+    "search": "検索",
+    "close": "閉じる",
+    "confirm": "確認",
+    "success": "成功",
+    "error": "エラー",
+    "loading": "読み込み中...",
+    "no_data": "データがありません",
+    "required": "必須",
+    "optional": "任意"
+  },
+  "dashboard": {
+    "greeting_morning": "おはようございます",
+    "greeting_afternoon": "こんにちは",
+    "greeting_evening": "こんばんは",
+    "today": "今日",
+    "this_week": "今週",
+    "this_month": "今月"
+  },
+  "leave": {
+    "apply": "申請する",
+    "status_pending": "申請中",
+    "status_approved": "承認済",
+    "status_rejected": "却下",
+    "type_paid": "有給休暇",
+    "type_sick": "病気休暇",
+    "type_other": "その他"
+  }
+}
